@@ -1,0 +1,4 @@
+What is live now:
+Active SIEM destination name: AIRG SIEM Event Receiver
+Receiver endpoint: POST http://enterprise-tools:9000/api/airg/siem/events
+Status endpoint: GET http://enterprise-tools:9000/api/airg/siem/status

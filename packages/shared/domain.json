@@ -1,0 +1,62 @@
+{
+  "roles": [
+    "admin",
+    "sme",
+    "buyer",
+    "financier",
+    "developer"
+  ],
+  "proofTypes": [
+    "INVOICE_CREATED",
+    "INVOICE_BUYER_CONFIRMED",
+    "DELIVERY_PROOF_SUBMITTED",
+    "RECEIVABLE_CREATED",
+    "SMART_LC_CREATED",
+    "CREDIT_SCORE_ATTESTED"
+  ],
+  "settlementStates": [
+    "created",
+    "funded",
+    "released",
+    "refunded",
+    "disputed"
+  ],
+  "networkObjects": [
+    "business_directory_profile",
+    "counterparty_relationship",
+    "trade_contract",
+    "trade_opportunity",
+    "seller_proposal",
+    "financier_marketplace_deal"
+  ],
+  "relationshipModels": [
+    "private_invite",
+    "verified_directory",
+    "buyer_opportunity",
+    "seller_proposal",
+    "financier_marketplace",
+    "embedded_api"
+  ],
+  "tradeContractStates": [
+    "draft",
+    "invited",
+    "accepted",
+    "changes_requested",
+    "active",
+    "cancelled",
+    "completed"
+  ],
+  "opportunityStates": [
+    "open",
+    "closed",
+    "awarded",
+    "cancelled"
+  ],
+  "proposalStates": [
+    "submitted",
+    "shortlisted",
+    "accepted",
+    "rejected",
+    "withdrawn"
+  ]
+}

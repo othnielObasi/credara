@@ -1,0 +1,130 @@
+from fastapi import APIRouter, Depends, Header, HTTPException
+from sqlalchemy.orm import Session
+from app.core.database import get_db
+from app.core.hashing import sha256_hex
+from app.core.idempotency import assert_idempotent
+from app.core.security import Role, require_roles
+from app.models.business import Business
+from app.models.enums import InvoiceStatus, OrderStatus, ProofStatus, ReceivableStatus, SmartLCStatus
+from app.models.identity import User
+from app.models.trade import DeliveryProof, Invoice, Order, Receivable, SmartLC
+from app.schemas.trade import DeliveryProofCreate, DeliveryProofRead, InvoiceBuyerConfirmRequest, InvoiceCreate, InvoiceRead, OrderConfirmRequest, OrderCreate, OrderRead, ReceivableCreate, ReceivableRead, SmartLCCreate, SmartLCRead
+from app.services.audit import record_audit
+from app.services.proofs import build_delivery_hash, build_invoice_hash, create_proof_bundle, score_delivery_proof
+
+router = APIRouter()
+
+def _require_owns_business(db: Session, user: User, business_id: str) -> None:
+    # SMEs may only act on their own business; admins act on any.
+    if user.role == Role.ADMIN.value:
+        return
+    business = db.get(Business, business_id)
+    if not business or business.owner_user_id != user.id:
+        raise HTTPException(403, 'You do not have access to this business')
+
+def _require_owns_buyer_business(db: Session, user: User, buyer_business_id: str) -> None:
+    # Buyers may only act as a business they own; admins act on any.
+    if user.role == Role.ADMIN.value:
+        return
+    business = db.get(Business, buyer_business_id)
+    if not business or business.owner_user_id != user.id:
+        raise HTTPException(403, 'You do not have access to this buyer business')
+
+@router.post('/orders', response_model=OrderRead)
+def create_order(payload: OrderCreate, idempotency_key: str | None = Header(None), db: Session = Depends(get_db), user: User = Depends(require_roles(Role.SME, Role.ADMIN))):
+    assert_idempotent(db, idempotency_key, 'create_order')
+    _require_owns_business(db, user, payload.seller_business_id)
+    order = Order(**payload.model_dump())
+    db.add(order); db.flush()
+    record_audit(db, user.id, 'order.created', 'order', order.id)
+    db.commit(); db.refresh(order)
+    return order
+
+@router.post('/orders/{order_id}/confirm', response_model=OrderRead)
+def confirm_order(order_id: str, payload: OrderConfirmRequest, db: Session = Depends(get_db), user: User = Depends(require_roles(Role.BUYER, Role.ADMIN))):
+    order = db.get(Order, order_id)
+    if not order: raise HTTPException(404, 'Order not found')
+    _require_owns_buyer_business(db, user, payload.buyer_business_id)
+    if order.buyer_business_id and order.buyer_business_id != payload.buyer_business_id:
+        raise HTTPException(403, 'This order is already bound to a different buyer business')
+    order.buyer_business_id = payload.buyer_business_id
+    order.status = OrderStatus.CONFIRMED.value
+    record_audit(db, user.id, 'order.confirmed', 'order', order.id)
+    db.commit(); db.refresh(order)
+    return order
+
+@router.post('/invoices', response_model=InvoiceRead)
+def create_invoice(payload: InvoiceCreate, db: Session = Depends(get_db), user: User = Depends(require_roles(Role.SME, Role.ADMIN))):
+    order = db.get(Order, payload.order_id)
+    if not order: raise HTTPException(404, 'Order not found')
+    _require_owns_business(db, user, order.seller_business_id)
+    invoice = Invoice(order_id=order.id, seller_business_id=order.seller_business_id, buyer_name=order.buyer_name, invoice_number=payload.invoice_number, amount=payload.amount, due_date=payload.due_date, currency=order.currency)
+    db.add(invoice); db.flush()
+    invoice.proof_hash = build_invoice_hash(invoice)
+    create_proof_bundle(db, order.seller_business_id, 'INVOICE_CREATED', {'invoice_id': invoice.id, 'proof_hash': invoice.proof_hash}, order_id=order.id, invoice_id=invoice.id)
+    record_audit(db, user.id, 'invoice.created', 'invoice', invoice.id)
+    db.commit(); db.refresh(invoice)
+    return invoice
+
+@router.post('/invoices/{invoice_id}/buyer-confirm', response_model=InvoiceRead)
+def buyer_confirm_invoice(invoice_id: str, payload: InvoiceBuyerConfirmRequest, db: Session = Depends(get_db), user: User = Depends(require_roles(Role.BUYER, Role.ADMIN))):
+    invoice = db.get(Invoice, invoice_id)
+    if not invoice: raise HTTPException(404, 'Invoice not found')
+    _require_owns_buyer_business(db, user, payload.buyer_business_id)
+    order = db.get(Order, invoice.order_id)
+    if not order or order.buyer_business_id != payload.buyer_business_id:
+        raise HTTPException(403, 'This buyer business is not bound to this invoice\'s order')
+    invoice.status = InvoiceStatus.BUYER_CONFIRMED.value
+    create_proof_bundle(db, invoice.seller_business_id, 'INVOICE_BUYER_CONFIRMED', {'invoice_id': invoice.id, 'status': invoice.status, 'proof_hash': invoice.proof_hash}, order_id=invoice.order_id, invoice_id=invoice.id)
+    record_audit(db, user.id, 'invoice.buyer_confirmed', 'invoice', invoice.id)
+    db.commit(); db.refresh(invoice)
+    return invoice
+
+@router.post('/delivery-proofs', response_model=DeliveryProofRead)
+def submit_delivery_proof(payload: DeliveryProofCreate, db: Session = Depends(get_db), user: User = Depends(require_roles(Role.SME, Role.ADMIN))):
+    order = db.get(Order, payload.order_id)
+    if not order: raise HTTPException(404, 'Order not found')
+    _require_owns_business(db, user, order.seller_business_id)
+    otp_hash = sha256_hex(payload.otp_code) if payload.otp_code else None
+    proof = DeliveryProof(order_id=order.id, submitted_by_user_id=user.id, evidence_uri=payload.evidence_uri, otp_code_hash=otp_hash, gps_lat=payload.gps_lat, gps_lng=payload.gps_lng, metadata_json=payload.metadata_json)
+    db.add(proof); db.flush()
+    proof.confidence_score = score_delivery_proof(proof)
+    proof.proof_hash = build_delivery_hash(proof)
+    if proof.confidence_score >= 70:
+        proof.status = ProofStatus.VERIFIED.value
+        order.status = OrderStatus.DELIVERED.value
+    create_proof_bundle(db, order.seller_business_id, 'DELIVERY_PROOF_SUBMITTED', {'delivery_proof_id': proof.id, 'confidence_score': proof.confidence_score, 'proof_hash': proof.proof_hash}, order_id=order.id, delivery_proof_id=proof.id)
+    record_audit(db, user.id, 'delivery_proof.submitted', 'delivery_proof', proof.id)
+    db.commit(); db.refresh(proof)
+    return proof
+
+@router.post('/receivables', response_model=ReceivableRead)
+def create_receivable(payload: ReceivableCreate, db: Session = Depends(get_db), user: User = Depends(require_roles(Role.SME, Role.ADMIN))):
+    invoice = db.get(Invoice, payload.invoice_id)
+    if not invoice: raise HTTPException(404, 'Invoice not found')
+    _require_owns_business(db, user, invoice.seller_business_id)
+    if invoice.status != InvoiceStatus.BUYER_CONFIRMED.value:
+        raise HTTPException(400, 'Invoice must be buyer-confirmed before receivable creation')
+    receivable = Receivable(invoice_id=invoice.id, seller_business_id=invoice.seller_business_id, debtor_name=invoice.buyer_name, face_value=invoice.amount, currency=invoice.currency, maturity_date=invoice.due_date, proof_hash=invoice.proof_hash or build_invoice_hash(invoice), status=ReceivableStatus.CREATED.value)
+    db.add(receivable); db.flush()
+    create_proof_bundle(db, invoice.seller_business_id, 'RECEIVABLE_CREATED', {'receivable_id': receivable.id, 'invoice_id': invoice.id, 'proof_hash': receivable.proof_hash}, order_id=invoice.order_id, invoice_id=invoice.id)
+    record_audit(db, user.id, 'receivable.created', 'receivable', receivable.id)
+    db.commit(); db.refresh(receivable)
+    return receivable
+
+@router.post('/smart-lcs', response_model=SmartLCRead)
+def create_smart_lc(payload: SmartLCCreate, db: Session = Depends(get_db), user: User = Depends(require_roles(Role.BUYER, Role.FINANCIER, Role.ADMIN))):
+    order = db.get(Order, payload.order_id)
+    if not order: raise HTTPException(404, 'Order not found')
+    if user.role == Role.BUYER.value:
+        # Financiers intentionally keep marketplace-wide access to fund any
+        # verified order; only the buyer side is scoped to their own business.
+        business = db.get(Business, order.buyer_business_id) if order.buyer_business_id else None
+        if not business or business.owner_user_id != user.id:
+            raise HTTPException(403, 'You do not have access to this order')
+    lc = SmartLC(order_id=order.id, seller_business_id=order.seller_business_id, buyer_name=order.buyer_name, amount=payload.amount, currency=payload.currency, status=SmartLCStatus.CREATED.value)
+    db.add(lc); db.flush()
+    create_proof_bundle(db, order.seller_business_id, 'SMART_LC_CREATED', {'smart_lc_id': lc.id, 'order_id': order.id, 'amount': payload.amount}, order_id=order.id)
+    record_audit(db, user.id, 'smart_lc.created', 'smart_lc', lc.id)
+    db.commit(); db.refresh(lc)
+    return lc
