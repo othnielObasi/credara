@@ -241,6 +241,49 @@ ROLE_ALLOWED = {
 }
 
 
+# ---------- Workspaces ----------
+@router.get("/workspaces/me")
+def my_workspaces(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    if user.role == Role.ADMIN.value:
+        memberships = db.scalars(select(Membership).where(Membership.status == "active")).all()
+    else:
+        memberships = db.scalars(
+            select(Membership).where(Membership.user_id == user.id, Membership.status == "active")
+        ).all()
+
+    rows = []
+    for membership in memberships:
+        workspace = db.get(Workspace, membership.workspace_id)
+        if not workspace:
+            continue
+        business = db.get(Business, workspace.business_id)
+        progress = db.scalar(
+            select(OnboardingProgressRecord).where(OnboardingProgressRecord.workspace_id == workspace.id)
+        )
+        rows.append(
+            {
+                "workspace": public_workspace(workspace),
+                "business": public_business(business) if business else None,
+                "membership": {
+                    "id": membership.id,
+                    "role": membership.role,
+                    "status": membership.status,
+                    "permissions": membership.permissions_json,
+                },
+                "progress": {
+                    "workspace_id": progress.workspace_id,
+                    "percent": progress.percent_complete,
+                    "kyb_status": progress.kyb_status,
+                    "wallet_status": progress.wallet_status,
+                    "first_workflow": progress.first_workflow,
+                }
+                if progress
+                else None,
+            }
+        )
+    return {"user": public_user(user), "workspaces": rows}
+
+
 # ---------- Onboarding ----------
 @router.post("/onboarding/start")
 def start_onboarding(
