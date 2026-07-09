@@ -1,6 +1,9 @@
 SHELL := /bin/bash
 
-.PHONY: dev test lint zip
+.PHONY: dev test lint zip setup-env
+
+setup-env:
+	bash scripts/setup-env.sh
 
 dev:
 	docker compose -f infra/docker-compose.yml up --build
