@@ -53,7 +53,7 @@ def publish_tx(seed: str, *, proof_hash: str | None = None) -> tuple[str, bool]:
                 abi=ANCHOR_ABI,
             )
             digest = bytes.fromhex(proof_hash.replace('0x', ''))
-            tx = contract.functions.anchorProof(digest, 'PROOF_BUNDLE', account.address, '').build_transaction(
+            tx = contract.functions.anchorProof(digest, 'Credara', account.address, 'https://credara.io/proof').build_transaction(
                 {
                     'from': account.address,
                     'nonce': nonce,

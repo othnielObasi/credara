@@ -4,6 +4,12 @@ const apiOrigin = process.env.API_PROXY_TARGET || 'http://localhost:8000';
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  async redirects() {
+    return [
+      { source: '/credara-enterprise-ui-v11.html', destination: '/', permanent: false },
+      { source: '/credara-ui.html', destination: '/', permanent: false },
+    ];
+  },
   async rewrites() {
     return [{ source: '/api/v1/:path*', destination: `${apiOrigin}/api/v1/:path*` }];
   },

@@ -11,7 +11,7 @@ export default function LandingPage({ onSignIn, onSignUp }: LandingPageProps) {
   return (
     <div className="landing-page">
       <header className="landing-nav">
-        <div className="brand-row"><div className="brand-mark">C</div><strong>credara</strong></div>
+        <div className="brand-row"><div className="brand-mark">C</div><strong>Credara</strong></div>
         <nav className="landing-links" aria-label="Sections">
           <button type="button" onClick={() => scrollTo('workflow')}>How it works</button>
           <button type="button" onClick={() => scrollTo('polygon')}>Polygon</button>
@@ -71,11 +71,12 @@ export default function LandingPage({ onSignIn, onSignUp }: LandingPageProps) {
 
       <div id="polygon" />
       <section className="landing-band">
-        <h2>Polygon infrastructure</h2>
+        <h2>Credara on Polygon</h2>
+        <p style={{ color: 'var(--muted)', marginBottom: 20 }}>Trade proof bundles anchored on Polygon Amoy — documents stay off-chain, hashes on-chain.</p>
         <div className="health-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
-          <div className="health-card"><strong>ProofRegistry</strong><span>Invoice + delivery bundle hashes</span></div>
-          <div className="health-card"><strong>ReceivableRegistry</strong><span>Tokenized receivable state</span></div>
-          <div className="health-card"><strong>SmartLCFactory</strong><span>Programmable LC escrow</span></div>
+          <div className="health-card"><strong>Credara Proof Layer</strong><span>Invoice + delivery bundle hashes</span></div>
+          <div className="health-card"><strong>Receivable tokens</strong><span>Finance-ready receivable state</span></div>
+          <div className="health-card"><strong>Smart LC escrow</strong><span>Programmable settlement</span></div>
         </div>
       </section>
 

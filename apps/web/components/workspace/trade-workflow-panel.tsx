@@ -209,9 +209,9 @@ export function TradeWorkflowPanel({ businessId, businessName, apiRole, onNotify
 
       {anchorUrl && (
         <section className="panel">
-          <strong>Polygon proof receipt</strong>
+          <strong>Credara proof receipt · Polygon Amoy</strong>
           <p style={{ color: 'var(--muted)', margin: '8px 0' }}>
-            {anchorOnChain ? 'Live Amoy transaction' : 'Simulated tx (set RELAYER_PRIVATE_KEY for on-chain)'}
+            {anchorOnChain ? 'Live transaction anchored by Credara' : 'Simulated tx (set RELAYER_PRIVATE_KEY for on-chain)'}
           </p>
           <a className="btn secondary" href={anchorUrl} target="_blank" rel="noreferrer">View on Polygonscan</a>
         </section>
@@ -503,7 +503,7 @@ export function ProofLedgerPage({ onNotify }: { onNotify: (title: string, messag
 
   return (
     <div className="page-stack">
-      <section className="page-intro"><p className="eyebrow">Credara workflow</p><h2>Proof Ledger</h2><p>Proof bundles and Polygon Amoy transaction receipts.</p></section>
+      <section className="page-intro"><p className="eyebrow">Credara</p><h2>Proof Ledger</h2><p>Credara proof bundles and Polygon Amoy transaction receipts.</p></section>
       <section className="table-panel">
         <div className="panel-head">
           <strong>Proof bundles</strong>
