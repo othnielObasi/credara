@@ -6,6 +6,168 @@
 
 ---
 
+## What problems Credara solves
+
+Credara targets the **global trade finance gap**: SMEs that deliver real goods to credible buyers still wait 30–90+ days for payment, while banks and alternative lenders struggle to fund them cheaply because trade claims are hard to verify, easy to fake, and expensive to underwrite.
+
+### The core pain (plain language)
+
+A supplier ships £100,000 of goods to a large buyer. The buyer will not pay for 90 days. The supplier still must pay staff, materials, and logistics **now**. Traditional finance is slow, document-heavy, and often unavailable to smaller firms.
+
+Credara does not magically remove the **cost of early funding** (e.g. a financier advancing £98,000 today for a £100,000 invoice). It attacks the reasons that cost is so high and opaque today.
+
+### Problem 1 — Invoice and trade fraud
+
+**Today:** Fake or duplicate invoices, weak buyer confirmation, and inconsistent paperwork let bad actors borrow against the same receivable more than once.
+
+**Credara’s answer:** Multi-party verification (SME, buyer, logistics) compiled into a **proof bundle**; only a cryptographic hash is anchored on Polygon. Documents stay off-chain; tampering is detectable.
+
+**Build implication:** Buyer inbox, delivery proof, and proof anchoring must be real workflow gates — not UI theatre.
+
+---
+
+### Problem 2 — Slow, manual settlement and letters of credit
+
+**Today:** LC and trade settlement involve days of bank coordination, paper checks, and disputed handoffs.
+
+**Credara’s answer:** **Smart Contract Letters of Credit** — escrow releases when agreed conditions (invoice confirmed, delivery verified, no open dispute) are met.
+
+**Build implication:** Settlement UI must reflect Smart LC state from API/contracts; relayer must eventually send real txs, not `simulate_tx_hash`.
+
+---
+
+### Problem 3 — SMEs lack tradable credit history
+
+**Today:** Banks rely on balance sheets and long relationships. Many growing suppliers are “unbankable” despite good buyers and clean delivery track records.
+
+**Credara’s answer:** **Trade credit scoring** from real order, invoice, settlement, and dispute history; optional on-chain attestation.
+
+**Build implication:** Score/readiness pages must consume `/finance/*` and audit data, not static demo numbers.
+
+---
+
+### Problem 4 — High cost and opacity of supply-chain finance
+
+**Today:** Manual KYB, logistics checks, and legal review make small-ticket deals uneconomic. Suppliers often do not know financing cost until late in the process.
+
+**Credara’s answer:** Automated KYB/logistics scoring, **financier deal room** with explicit offers, risk rules, and repayment schedules before acceptance.
+
+**Build implication:** Deal room + offer accept/reject (Phase 5) is a core product promise, not a nice-to-have.
+
+---
+
+### Problem 5 — Enterprise privacy vs blockchain transparency
+
+**Today:** Firms avoid public chains because competitors could see commercial terms.
+
+**Credara’s answer:** Sensitive trade documents in private storage; chain records **hashes and state transitions** only.
+
+**Build implication:** UI shows proof receipts and explorer links, not raw commercial PDFs on-chain.
+
+---
+
+### Problem 6 — Fragmented counterparties (no single operating system)
+
+**Today:** Supplier, buyer, financier, and compliance teams use different tools and email trails.
+
+**Credara’s answer:** Four workspaces on one platform — SME, Buyer, Financier, Admin/Risk — with shared audit trail, invitations, and API/webhook integrations.
+
+**Build implication:** Build the **circular workflow** (upload → verify → fund → settle → repay), not isolated dashboard pages.
+
+---
+
+### Who benefits
+
+| Actor | Problem relieved |
+|-------|------------------|
+| **SME / supplier** | Cash sooner; clearer path to finance; reputational trade credit score |
+| **Buyer** | Controlled confirmation; less fraud exposure; automated settlement when terms met |
+| **Financier** | Verifiable collateral; lower underwriting friction; transparent offer terms |
+| **Admin / risk** | KYB, disputes, suspicious proof, audit in one console |
+| **Developer / integrator** | APIs and webhooks into ERP, logistics, and lender systems |
+
+---
+
+### Geographic focus (go-to-market, not code)
+
+Credara is positioned for **UAE / DIFC trade corridors** (e.g. Jebel Ali supplier financing): high logistics volume, digital-asset regulatory ambition (VARA), and stablecoin settlement readiness. This shapes pilot design and narrative; it does not replace technical delivery.
+
+---
+
+### What Credara is **not** (honest scope)
+
+- Not a replacement for courts and lawyers when disputes go off-chain
+- Not live mainnet production today — relayer, KYB providers, and much UI wiring are still demo/sandbox
+- Not fee-free finance — it aims to make fees **smaller, fairer, and visible earlier**
+
+---
+
+## Strategic considerations (before build)
+
+Filtered from product/architecture reviews and external analysis. Use this to **prioritize**, not to expand scope blindly.
+
+### High priority — adopt as build principles
+
+| Consideration | Why it matters | Repo touchpoint |
+|---------------|----------------|-----------------|
+| **State in backend, not UI** | Enterprise trust; no “smoke and mirrors” | `docs/ARCHITECTURE.md`, `CODEBASE_REVIEW.md` |
+| **Four-workspace loop** | Product is the full trade cycle, not four demos | README workspaces, standalone UI |
+| **Proof bundle as trust bridge** | Core differentiation vs generic invoicing | `proofs.py`, `ProofRegistry.sol` |
+| **Relayer + indexer** | Without real chain, “Polygon-powered” is marketing only | `simulate_tx_hash`, `apps/workers` |
+| **Deal-room pricing transparency** | Supplier must see cost before accepting | `/deal-room/*`, `/risk-rules` |
+| **Honest demo vs production** | Credibility with investors and pilots | README production controls list |
+| **Dubai/UAE pilot narrative** | One corridor, three parties: SME + buyer + financier | Landing, `docs/PROCESS_FLOWS.md` |
+
+**Pre-build checklist items to add:**
+- [ ] One pilot corridor narrative written (e.g. Jebel Ali supplier shipment)
+- [ ] One happy-path user story mapped to API routes (order → settle)
+- [ ] Explicit “sandbox” labelling anywhere chain/KYB is simulated
+
+---
+
+### Medium priority — plan for, do not block Phase 0–4
+
+| Consideration | When |
+|---------------|------|
+| **Logistics oracles** (GPS, carrier APIs, OTP handover) | Phase 5+; API shape exists |
+| **Legal enforceability** (UCP 600, assignment, disputes) | Before real money custody; legal review |
+| **Fiat–crypto abstraction** (AA, paymasters, custodial wallets) | Before mainstream SME onboarding in UAE |
+| **Object storage for evidence files** | Before production document upload |
+| **Webhook delivery worker + API key auth middleware** | Before developer integrations |
+| **Alembic migrations** | Before multi-env deploy |
+| **Auditor / regulator read-only views** | Phase 6 |
+
+---
+
+### Low priority — deprioritize for now
+
+| Topic | Reason |
+|-------|--------|
+| Polygon CDK / AggLayer sovereign chains | Roadmap; not needed for first pilot |
+| Zero-knowledge proofs for bundles | Hash anchoring sufficient for pilot |
+| Industry comparables (Finastra, Polytrade, etc.) | GTM context only |
+| “Backend is production-complete” framing | Overstated — many paths still simulated |
+| ERC-1155 / 4337 on landing copy | Marketing; verify against actual contracts before claiming |
+
+---
+
+### Recommended build order (problem-driven)
+
+Align UI and backend work with **solved problems**, not page count:
+
+```text
+1. Trade pipeline     → fraud reduction (verify before finance)
+2. Settlement slice   → slow LC / payment friction
+3. Real chain anchor  → verifiable proof receipts
+4. Deal room + fees   → opaque/expensive finance
+5. Logistics + KYB live → underwriting automation
+6. UAE pilot          → one real corridor, three parties
+```
+
+UI port phases in this doc should follow that order. Landing parity (Phase 1) supports GTM but does not solve a user problem by itself.
+
+---
+
 ## Where checklists live in this repo
 
 | Document | Scope | When to use |
@@ -199,7 +361,7 @@ When porting a standalone page to React:
 | Phase | Status | Notes |
 |-------|--------|-------|
 | Pre-build gates | ⬜ Not started | Checklist created 2026-07-09 |
-| Phase 0 | ⬜ Not started | Partial uncommitted files exist — **do not merge until gated** |
+| Phase 0 | ⬜ Not started | |
 | Phase 1 | ⬜ Not started | |
 | Phase 2 | 🟡 Partial | Settlement wired in old `credara-live-app.tsx`; needs hardening |
 | Phase 3 | ⬜ Not started | |
