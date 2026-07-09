@@ -6,8 +6,9 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   async redirects() {
     return [
-      { source: '/credara-enterprise-ui-v11.html', destination: '/', permanent: false },
-      { source: '/credara-ui.html', destination: '/', permanent: false },
+      { source: '/credara-enterprise-ui-v11.html', destination: '/', permanent: true },
+      { source: '/credara-ui.html', destination: '/', permanent: true },
+      { source: '/:path*.html', destination: '/', permanent: true },
     ];
   },
   async rewrites() {
