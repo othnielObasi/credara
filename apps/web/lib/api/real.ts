@@ -30,6 +30,18 @@ export const realApi = {
 
   listInvitations: () => realRequest<Array<Record<string, unknown>>>('/invitations'),
 
+  createInvitation: (body: {
+    from_workspace_id: string;
+    from_business_name: string;
+    to_email: string;
+    invite_type: string;
+    invited_role: string;
+    target_type: string;
+    target_id: string;
+    target_route: string;
+    message?: string;
+  }) => realRequest<Record<string, unknown>>('/invitations', { method: 'POST', body: JSON.stringify(body) }),
+
   listApiKeys: (workspaceId: string) =>
     realRequest<Array<Record<string, unknown>>>(`/api-keys?workspace_id=${encodeURIComponent(workspaceId)}`),
 

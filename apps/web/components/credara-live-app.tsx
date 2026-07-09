@@ -3,6 +3,7 @@
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
 import LandingPage from './landing/landing-page';
 import { TradeWorkflowPanel, DeliveryProofPanel, ReceivablesPanel, ProofLedgerPage } from './workspace/trade-workflow-panel';
+import { SettingsPanel, InvitationsPanel, BuyerInboxPanel, MarketplacePanel, DealRoomPanel } from './workspace/workspace-panels';
 import { clearAuthSession, loginUser, realApi, registerUser, setAuthSession } from '../lib/api';
 import { fmt, statusTone, titleCase } from '../lib/format';
 
@@ -321,14 +322,19 @@ function useCredaraApp(startInWorkspace: boolean) {
 
   async function loadOperationalState(workspaceId?: string) {
     const id = workspaceId || state.workspaceId || (await ensureWorkspace());
-    const [settings, apiKeys, wallets, payments, escrows, ledger] = await Promise.all([
+    const [settings, apiKeys, wallets, payments, escrows, ledger, invitations, workspaceData] = await Promise.all([
       realApi.getSettings(id).catch(() => null),
       realApi.listApiKeys(id).catch(() => []),
       realApi.listWallets(id).catch(() => []),
       realApi.listPaymentIntents(id).catch(() => []),
       realApi.listEscrows(id).catch(() => []),
       realApi.listLedger(id).catch(() => []),
+      realApi.listInvitations().catch(() => []),
+      realApi.workspacesMe().catch(() => null),
     ]);
+    const members = workspaceData?.user
+      ? [{ name: workspaceData.user.full_name, email: workspaceData.user.email, role: titleCase(workspaceData.user.role), status: 'Active' }]
+      : [];
     setState((current) => ({
       ...current,
       settings: settings
@@ -350,10 +356,25 @@ function useCredaraApp(startInWorkspace: boolean) {
       paymentIntents: payments.map((p) => mapPayment(p, current.role, current.settings.workspace.name as string)),
       escrows: escrows.map(mapEscrow),
       ledger: ledger.map(mapLedger),
+      invitations: invitations.map((inv) => ({
+        id: String(inv.id),
+        type: String(inv.invite_type || inv.type || 'invite'),
+        from: String(inv.from_business_name || inv.from || ''),
+        to: String(inv.to_email || inv.to || ''),
+        target: String(inv.target_id || inv.target || ''),
+        status: String(inv.status || 'pending'),
+        role: String(inv.invited_role || inv.role || ''),
+        message: String(inv.message || ''),
+      })),
+      members,
       connected: true,
       error: null,
       lastSync: new Date().toLocaleTimeString(),
     }));
+  }
+
+  async function refreshInvitations() {
+    await loadOperationalState(state.workspaceId || undefined);
   }
 
   async function signUp(event: FormEvent) {
@@ -623,6 +644,8 @@ function useCredaraApp(startInWorkspace: boolean) {
     reconcile,
     releaseEscrow,
     loadNavigation,
+    refreshInvitations,
+    loadOperationalState,
   };
 }
 
@@ -744,7 +767,20 @@ function PageRenderer({ page, state, app, metrics, switchPage }: { page: PageKey
   if (page === 'settlementLedger') return <Ledger state={state} app={app} />;
   if (page === 'reconciliation') return <Reconciliation state={state} app={app} />;
   if (page === 'settlement') return <Settlement state={state} app={app} />;
-  if (page === 'settings') return <Settings state={state} app={app} />;
+  if (page === 'settings') {
+    return (
+      <SettingsPanel
+        workspaceId={state.workspaceId}
+        settings={state.settings}
+        onSaved={(draft) => app.setState((c) => ({ ...c, settings: draft }))}
+        onNotify={app.notify}
+        onCreateApiKey={app.createApiKey}
+      />
+    );
+  }
+  if (page === 'buyerInbox') return <BuyerInboxPanel apiRole={state.jwtRole} onNotify={app.notify} />;
+  if (page === 'marketplace') return <MarketplacePanel apiRole={state.jwtRole} onNotify={app.notify} />;
+  if (page === 'dealRoom') return <DealRoomPanel apiRole={state.jwtRole} onNotify={app.notify} />;
   if (page === 'apiExplorer') return <ApiExplorer state={state} app={app} />;
   if (page === 'contractDetail') {
     return (
@@ -763,11 +799,23 @@ function PageRenderer({ page, state, app, metrics, switchPage }: { page: PageKey
     return <ReceivablesPanel businessId={state.businessId} apiRole={state.jwtRole} onNotify={app.notify} />;
   }
   if (page === 'invoiceDetail') return <RecordDetail page={page} state={state} switchPage={switchPage} />;
-  if (['onboarding', 'businessProfile', 'invitations', 'members'].includes(page)) return <SetupPage page={page} state={state} switchPage={switchPage} />;
+  if (page === 'invitations') {
+    return (
+      <InvitationsPanel
+        workspaceId={state.workspaceId}
+        businessName={state.settings.workspace.name as string}
+        invitations={state.invitations}
+        onRefresh={app.refreshInvitations}
+        onNotify={app.notify}
+      />
+    );
+  }
+  if (page === 'members') return <TablePanel title="Members" headers={['Name', 'Email', 'Role', 'Status']} rows={state.members.map((m) => [m.name, m.email, m.role, m.status])} />;
+  if (['onboarding', 'businessProfile'].includes(page)) return <SetupPage page={page} state={state} switchPage={switchPage} />;
   if (page === 'proof') return <ProofLedgerPage onNotify={app.notify} />;
   if (['evidence', 'credit', 'kyb'].includes(page)) return <TrustPage page={page} state={state} />;
-  if (['directory', 'opportunities', 'proposals', 'marketplace', 'dealRoom'].includes(page)) return <NetworkPage page={page} state={state} />;
-  if (['buyerInbox', 'delivery', 'receivables', 'repayments', 'admin', 'riskRules', 'permissions', 'launch'].includes(page)) return <OperationalPage page={page} state={state} switchPage={switchPage} />;
+  if (['directory', 'opportunities', 'proposals'].includes(page)) return <NetworkPage page={page} state={state} />;
+  if (['repayments', 'admin', 'riskRules', 'permissions', 'launch'].includes(page)) return <OperationalPage page={page} state={state} switchPage={switchPage} />;
   return <Dashboard state={state} metrics={metrics} switchPage={switchPage} />;
 }
 

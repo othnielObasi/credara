@@ -267,7 +267,7 @@ Do **not** skip ahead. Each phase has exit criteria.
 - [x] Escrows — create / fund / release
 - [x] Ledger — `GET /real/ledger`
 - [x] Reconciliation — `POST /real/reconciliation/{type}/{id}`
-- [ ] Settings save — `PUT /real/settings`
+- [x] Settings save — `PUT /real/settings`
 - [x] API keys — `POST /real/api-keys`
 - [x] **No demo fallback** after auth on these pages
 
@@ -277,9 +277,9 @@ Do **not** skip ahead. Each phase has exit criteria.
 
 ### Phase 3 — Setup & access
 
-- [ ] Onboarding — `/real/onboarding/*`
-- [ ] Invitations — `GET/POST /real/invitations`
-- [ ] Members — from workspace membership API
+- [x] Onboarding — `/real/onboarding/*`
+- [x] Invitations — `GET/POST /real/invitations`
+- [x] Members — from workspace membership API
 - [ ] Business profile — business + KYB read
 
 **Exit criteria:** New user onboarding and invite flow work end-to-end.
@@ -302,7 +302,7 @@ Do **not** skip ahead. Each phase has exit criteria.
 ### Phase 5 — Network + financier
 
 - [ ] Directory, opportunities, proposals — `/network/*`
-- [ ] Marketplace, deal room — `/enterprise/*` or `/network/*`
+- [x] Marketplace, deal room — `/enterprise/*` or `/network/*`
 - [ ] Repayments, credit score UI
 
 **Exit criteria:** Financier can discover and review receivables from live API data.
@@ -449,10 +449,10 @@ What does **not** move the score much before submit:
 | Pre-build gates | ✅ Complete | Checklist created 2026-07-09 |
 | Phase 0 | ✅ Complete | API layer, React Query, tokens, rewrites |
 | Phase 1 | 🟡 In progress | Landing + auth overlay + server nav; mobile sidebar pending |
-| Phase 2 | 🟡 In progress | No demo fallback; settings save pending |
-| Phase 3 | ⬜ Not started | |
+| Phase 2 | 🟡 In progress | Settings save wired |
+| Phase 3 | 🟡 In progress | Invitations live; KYB profile pending |
 | Phase 4 | 🟡 In progress | Full trade workflow UI; buyer needs buyer JWT account |
-| Phase 5–7 | ⬜ Not started | |
+| Phase 5–7 | 🟡 In progress | Marketplace + deal room wired |
 
 ---
 
