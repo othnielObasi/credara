@@ -2,7 +2,7 @@
 
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
 import LandingPage from './landing/landing-page';
-import { TradeWorkflowPanel } from './workspace/trade-workflow-panel';
+import { TradeWorkflowPanel, DeliveryProofPanel, ReceivablesPanel, ProofLedgerPage } from './workspace/trade-workflow-panel';
 import { clearAuthSession, loginUser, realApi, registerUser, setAuthSession } from '../lib/api';
 import { fmt, statusTone, titleCase } from '../lib/format';
 
@@ -114,6 +114,7 @@ type AppState = {
   lastSync: string | null;
   page: PageKey;
   role: Role;
+  jwtRole: Role;
   allowedPages: PageKey[];
   settings: SettingsState;
   wallets: Wallet[];
@@ -196,6 +197,7 @@ const initialState: AppState = {
   lastSync: null,
   page: 'dashboard',
   role: 'sme',
+  jwtRole: 'sme',
   allowedPages: roleAllowed.sme,
   settings: {
     profile: { name: '', email: '', language: 'English', timezone: 'UTC +0' },
@@ -246,7 +248,7 @@ function useCredaraApp(startInWorkspace: boolean) {
 
   function rememberAuth(token: string, role: Role) {
     setAuthSession(token, role);
-    withState({ token, role });
+    withState({ token, role, jwtRole: role });
   }
 
   async function loadNavigation(role: Role) {
@@ -268,6 +270,7 @@ function useCredaraApp(startInWorkspace: boolean) {
     const patch: Partial<AppState> = {
       userId: data.user?.id || state.userId,
       role,
+      jwtRole: role,
       connected: true,
       error: null,
       lastSync: new Date().toLocaleTimeString(),
@@ -364,7 +367,7 @@ function useCredaraApp(startInWorkspace: boolean) {
         role: authForm.role,
       });
       rememberAuth(auth.access_token, auth.role as Role);
-      withState({ role: auth.role as Role, page: 'onboarding' });
+      withState({ role: auth.role as Role, jwtRole: auth.role as Role, page: 'onboarding' });
       setShowAuth(false);
       const wsId = await ensureWorkspace();
       await loadOperationalState(wsId);
@@ -587,7 +590,7 @@ function useCredaraApp(startInWorkspace: boolean) {
     const token = typeof window !== 'undefined' ? localStorage.getItem('credara.authToken') : null;
     const role = (typeof window !== 'undefined' ? localStorage.getItem('credara.role') : null) as Role | null;
     if (!token) return;
-    setState((current) => ({ ...current, token, role: role || current.role }));
+    setState((current) => ({ ...current, token, role: role || current.role, jwtRole: role || current.jwtRole }));
     void (async () => {
       try {
         const id = await loadWorkspace();
@@ -748,13 +751,21 @@ function PageRenderer({ page, state, app, metrics, switchPage }: { page: PageKey
       <TradeWorkflowPanel
         businessId={state.businessId}
         businessName={state.settings.workspace.name as string}
+        apiRole={state.jwtRole}
         onNotify={app.notify}
       />
     );
   }
+  if (page === 'delivery') {
+    return <DeliveryProofPanel businessId={state.businessId} apiRole={state.jwtRole} onNotify={app.notify} />;
+  }
+  if (page === 'receivables') {
+    return <ReceivablesPanel businessId={state.businessId} apiRole={state.jwtRole} onNotify={app.notify} />;
+  }
   if (page === 'invoiceDetail') return <RecordDetail page={page} state={state} switchPage={switchPage} />;
   if (['onboarding', 'businessProfile', 'invitations', 'members'].includes(page)) return <SetupPage page={page} state={state} switchPage={switchPage} />;
-  if (['proof', 'evidence', 'credit', 'kyb'].includes(page)) return <TrustPage page={page} state={state} />;
+  if (page === 'proof') return <ProofLedgerPage onNotify={app.notify} />;
+  if (['evidence', 'credit', 'kyb'].includes(page)) return <TrustPage page={page} state={state} />;
   if (['directory', 'opportunities', 'proposals', 'marketplace', 'dealRoom'].includes(page)) return <NetworkPage page={page} state={state} />;
   if (['buyerInbox', 'delivery', 'receivables', 'repayments', 'admin', 'riskRules', 'permissions', 'launch'].includes(page)) return <OperationalPage page={page} state={state} switchPage={switchPage} />;
   return <Dashboard state={state} metrics={metrics} switchPage={switchPage} />;

@@ -2,3 +2,4 @@ export { apiRequest, realRequest, getAuthToken, setAuthSession, clearAuthSession
 export { registerUser, loginUser } from './api/auth';
 export { realApi } from './api/real';
 export { tradeApi } from './api/trade';
+export { proofApi } from './api/proof';

@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, Header, HTTPException
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.hashing import sha256_hex
@@ -17,6 +18,8 @@ router = APIRouter()
 @router.get('/orders', response_model=list[OrderRead])
 def list_orders(
     seller_business_id: str | None = None,
+    buyer_business_id: str | None = None,
+    pending_buyer: bool = False,
     db: Session = Depends(get_db),
     user: User = Depends(require_roles(Role.SME, Role.BUYER, Role.FINANCIER, Role.ADMIN)),
 ):
@@ -24,14 +27,29 @@ def list_orders(
     if seller_business_id:
         _require_owns_business(db, user, seller_business_id)
         q = q.filter(Order.seller_business_id == seller_business_id)
+    elif buyer_business_id:
+        _require_owns_buyer_business(db, user, buyer_business_id)
+        q = q.filter(Order.buyer_business_id == buyer_business_id)
+    elif pending_buyer and user.role in {Role.BUYER.value, Role.ADMIN.value}:
+        owned_ids = [b.id for b in db.query(Business).filter(Business.owner_user_id == user.id).all()]
+        if user.role == Role.ADMIN.value:
+            q = q.filter(Order.buyer_business_id.is_(None))
+        elif owned_ids:
+            q = q.filter(or_(Order.buyer_business_id.in_(owned_ids), Order.buyer_business_id.is_(None)))
+        else:
+            q = q.filter(Order.buyer_business_id.is_(None))
     elif user.role == Role.SME.value:
         owned_ids = [b.id for b in db.query(Business).filter(Business.owner_user_id == user.id).all()]
         q = q.filter(Order.seller_business_id.in_(owned_ids)) if owned_ids else q.filter(False)
+    elif user.role == Role.BUYER.value:
+        owned_ids = [b.id for b in db.query(Business).filter(Business.owner_user_id == user.id).all()]
+        q = q.filter(Order.buyer_business_id.in_(owned_ids)) if owned_ids else q.filter(False)
     return q.order_by(Order.created_at.desc()).limit(100).all()
 
 @router.get('/invoices', response_model=list[InvoiceRead])
 def list_invoices(
     seller_business_id: str | None = None,
+    buyer_business_id: str | None = None,
     db: Session = Depends(get_db),
     user: User = Depends(require_roles(Role.SME, Role.BUYER, Role.FINANCIER, Role.ADMIN)),
 ):
@@ -39,10 +57,60 @@ def list_invoices(
     if seller_business_id:
         _require_owns_business(db, user, seller_business_id)
         q = q.filter(Invoice.seller_business_id == seller_business_id)
+    elif buyer_business_id:
+        _require_owns_buyer_business(db, user, buyer_business_id)
+        order_ids = [o.id for o in db.query(Order).filter(Order.buyer_business_id == buyer_business_id).all()]
+        q = q.filter(Invoice.order_id.in_(order_ids)) if order_ids else q.filter(False)
     elif user.role == Role.SME.value:
         owned_ids = [b.id for b in db.query(Business).filter(Business.owner_user_id == user.id).all()]
         q = q.filter(Invoice.seller_business_id.in_(owned_ids)) if owned_ids else q.filter(False)
+    elif user.role == Role.BUYER.value:
+        owned_ids = [b.id for b in db.query(Business).filter(Business.owner_user_id == user.id).all()]
+        if owned_ids:
+            order_ids = [o.id for o in db.query(Order).filter(Order.buyer_business_id.in_(owned_ids)).all()]
+            q = q.filter(Invoice.order_id.in_(order_ids)) if order_ids else q.filter(False)
+        else:
+            q = q.filter(False)
     return q.order_by(Invoice.created_at.desc()).limit(100).all()
+
+@router.get('/delivery-proofs', response_model=list[DeliveryProofRead])
+def list_delivery_proofs(
+    order_id: str | None = None,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles(Role.SME, Role.BUYER, Role.FINANCIER, Role.ADMIN)),
+):
+    q = db.query(DeliveryProof)
+    if order_id:
+        order = db.get(Order, order_id)
+        if not order:
+            raise HTTPException(404, 'Order not found')
+        if user.role == Role.SME.value:
+            _require_owns_business(db, user, order.seller_business_id)
+        elif user.role == Role.BUYER.value and order.buyer_business_id:
+            _require_owns_buyer_business(db, user, order.buyer_business_id)
+        q = q.filter(DeliveryProof.order_id == order_id)
+    elif user.role == Role.SME.value:
+        owned_ids = [b.id for b in db.query(Business).filter(Business.owner_user_id == user.id).all()]
+        if not owned_ids:
+            return []
+        order_ids = [o.id for o in db.query(Order).filter(Order.seller_business_id.in_(owned_ids)).all()]
+        q = q.filter(DeliveryProof.order_id.in_(order_ids)) if order_ids else q.filter(False)
+    return q.order_by(DeliveryProof.created_at.desc()).limit(100).all()
+
+@router.get('/receivables', response_model=list[ReceivableRead])
+def list_receivables(
+    seller_business_id: str | None = None,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles(Role.SME, Role.BUYER, Role.FINANCIER, Role.ADMIN)),
+):
+    q = db.query(Receivable)
+    if seller_business_id:
+        _require_owns_business(db, user, seller_business_id)
+        q = q.filter(Receivable.seller_business_id == seller_business_id)
+    elif user.role == Role.SME.value:
+        owned_ids = [b.id for b in db.query(Business).filter(Business.owner_user_id == user.id).all()]
+        q = q.filter(Receivable.seller_business_id.in_(owned_ids)) if owned_ids else q.filter(False)
+    return q.order_by(Receivable.created_at.desc()).limit(100).all()
 
 def _require_owns_business(db: Session, user: User, business_id: str) -> None:
     # SMEs may only act on their own business; admins act on any.

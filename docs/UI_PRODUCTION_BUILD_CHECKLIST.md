@@ -290,9 +290,9 @@ Do **not** skip ahead. Each phase has exit criteria.
 
 - [x] Order list + create — `GET/POST /trade/orders`
 - [x] Invoice list + create — `GET/POST /trade/invoices`
-- [ ] Buyer confirm invoice
-- [ ] Delivery proof submit
-- [ ] Receivable create (gated by invoice status)
+- [x] Buyer confirm invoice
+- [x] Delivery proof submit
+- [x] Receivable create (gated by invoice status)
 - [ ] Replace client `guidedNext()` with server-driven workflow state
 
 **Exit criteria:** README 8-step demo flow completable through React UI + API (chain step may still be simulated until relayer is real).
@@ -451,7 +451,7 @@ What does **not** move the score much before submit:
 | Phase 1 | 🟡 In progress | Landing + auth overlay + server nav; mobile sidebar pending |
 | Phase 2 | 🟡 In progress | No demo fallback; settings save pending |
 | Phase 3 | ⬜ Not started | |
-| Phase 4 | 🟡 In progress | Orders/invoices UI wired; buyer confirm + delivery pending |
+| Phase 4 | 🟡 In progress | Full trade workflow UI; buyer needs buyer JWT account |
 | Phase 5–7 | ⬜ Not started | |
 
 ---

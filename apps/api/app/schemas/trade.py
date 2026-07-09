@@ -16,6 +16,7 @@ class OrderConfirmRequest(BaseModel):
 class OrderRead(ORMModel):
     id: str
     seller_business_id: str
+    buyer_business_id: str | None = None
     buyer_name: str
     description: str
     total_amount: float
