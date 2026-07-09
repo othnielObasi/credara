@@ -1,12 +1,15 @@
 SHELL := /bin/bash
 
-.PHONY: dev test lint zip setup-env
+.PHONY: dev dev-local test lint zip setup-env
 
 setup-env:
 	bash scripts/setup-env.sh
 
 dev:
 	docker compose -f infra/docker-compose.yml up --build
+
+dev-local:
+	bash scripts/dev-local.sh
 
 test:
 	cd apps/api && pytest -q

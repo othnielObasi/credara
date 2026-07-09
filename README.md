@@ -38,18 +38,12 @@ Web app: http://localhost:3000
 ## Local development without Docker
 
 ```bash
-cd apps/api
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-uvicorn app.main:app --reload
+make setup-env          # once: creates .env
+bash scripts/dev-local.sh api   # terminal 1
+bash scripts/dev-local.sh web   # terminal 2
 ```
 
-```bash
-cd apps/web
-npm install
-npm run dev
-```
+Open **http://localhost:3000/** — sign up to create a live workspace.
 
 ```bash
 cd contracts
@@ -149,17 +143,12 @@ v9 adds business onboarding, invitations, role routing, members, and setup check
 v10 filters pages by selected role and moves API/platform controls into Settings. See `docs/ROLE_FILTERED_SETTINGS.md`.
 
 
-## v12 Enterprise UI Alignment Update
+## v12 Enterprise UI
 
-This version aligns the runnable Next.js app with the full enterprise HTML experience supplied in `apps/web/public/credara-enterprise-ui-v11.html`. The previous simplified Next.js landing/workspace shell has been replaced with a full-screen enterprise UI host so cloning and running the repository now shows the same Credara experience demonstrated by the standalone UI file.
+The runnable app is the **Credara Next.js workspace** at `http://localhost:3000/` (`apps/web`).
 
-Additional hardening included in this update:
+The old standalone HTML demo has been archived to `docs/archive/` for reference only — it is **not** the product UI. Do not open `credara-ui.html` directly; use the Next.js app.
 
-- Fixed the missing `secrets` import in the persistent real workflow router so invitations, API keys and webhooks can be created.
-- Replaced the fragile `passlib[bcrypt]` runtime usage with direct `bcrypt` hashing/verification to avoid the bcrypt 5 compatibility failure during registration/login.
-- Added `bcrypt==4.0.1` to requirements for deterministic installs, while the direct bcrypt implementation also works with current bcrypt releases.
-- Added `contracts/tsconfig.json` so the Hardhat TypeScript configuration is valid.
-- Verified the web app production build and API test suite locally. Contract compilation still requires Hardhat access to the Solidity compiler download/cache for `0.8.28`.
 
 ## Real Workflow Wiring
 
