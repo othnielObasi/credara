@@ -356,6 +356,92 @@ When porting a standalone page to React:
 
 ---
 
+## Hackathon / DIFC submission alignment
+
+**Context:** UAE Polygon + DIFC hackathon — stablecoin payments, remittances, and trade finance. Prize pool rewards **on-chain readiness**, **technical excellence**, and **real-world UAE impact**.
+
+This is not a reason to stop building Credara. It is the **scoring rubric** — use it to focus the MVP and submission narrative.
+
+### Which problem track Credara fits
+
+| Hackathon problem | Credara fit | Recommendation |
+|-------------------|-------------|----------------|
+| **#1 SME Trade Finance Is Broken** | **Primary fit** — tokenized receivables, Smart LCs, trade credit scoring on Polygon | **Lead with this** in problem statement, demo, and architecture |
+| **#2 Merchant Payments / POS / AED retail** | **Weak fit** — Credara is B2B trade finance, not merchant POS or tourist wallets | Do **not** reposition as a POS product; mention stablecoin settlement as **corridor infrastructure** only |
+
+Credara already names the hackathon’s exact asks for Problem #1:
+- Tokenized receivables → `ReceivableRegistry`, `/trade/receivables`
+- Smart contract LCs → `SmartLC.sol`, settlement/escrow APIs
+- On-chain trade credit scoring → `CreditScoreAttestation`, `/finance/*`
+- Jebel Ali / UAE corridor → landing, process docs, pilot narrative
+
+### Judging criteria → what judges will test vs what you have
+
+| Criterion | Credara strength today | Gap to close before submit |
+|-----------|------------------------|----------------------------|
+| **Innovation** | Proof bundles + multi-party verification + Smart LC escrow | Show **one novel flow** live, not 31 static pages |
+| **Technical excellence** | Monorepo, contracts (OZ-hardened), bounded contexts, outbox pattern | **One real Amoy tx** on Polygonscan; relayer not `simulate_tx_hash` |
+| **User experience** | Standalone UI is pitch-grade; React app is thinner | Runnable demo: sign up → trade → fund → **verifiable chain receipt** |
+| **Real-world impact** | $2T gap, SME rejection, Jebel Ali TEU story matches brief | **3-party pilot story**: UAE supplier + buyer + financier with stablecoin settlement |
+| **On-chain readiness** (rewards) | Contracts compile; Amoy in `.env.example` | Deployed contracts + live tx hashes in Proof Ledger |
+
+### Submission pack mapping (Step 1 checklist)
+
+| Required item | Credara source material |
+|---------------|-------------------------|
+| Team background | Your team doc (not in repo) |
+| Problem statement | **Problem #1** — SME trade finance; UAE/Jebel Ali corridor |
+| Target market | UAE/DIFC B2B suppliers, buyers, trade financiers (not retail merchants) |
+| Technical architecture on Polygon | `docs/ARCHITECTURE.md`, contracts, relayer/indexer design |
+| Launch roadmap | Phases in this doc + `security/deployment-readiness-checklist.md` |
+| Revenue model | Platform/API fees, financier spread, SaaS for corridors (your GTM) |
+| MVP / prototype | **Must demonstrate:** order → invoice → confirm → proof anchor → receivable → Smart LC fund/release with **Polygonscan link** |
+
+### Stablecoin angle (connect to hackathon theme without pivoting)
+
+The brief emphasizes AED stablecoins and PTSR-compliant acceptance. Credara’s honest positioning:
+
+- **Today:** MockUSDC on Amoy for demo settlement (`MockUSDC.sol`, payment intents, escrow)
+- **Pilot story:** Smart LC escrow settles in **regulated AED stablecoin** when buyer pays — Credara is the **workflow + proof layer**, not the POS
+- **Do not claim:** Retail merchant acceptance, tourist wallets, or loyalty tokenization unless you build them
+
+Bridge line for judges: *“Credara uses Polygon stablecoin rails to settle B2B trade once verified receivables and Smart LC conditions are met — the compliance-heavy half of UAE’s payment future.”*
+
+### Minimum viable demo for judges (priority order)
+
+What wins **Technical Excellence** + **On-chain readiness**:
+
+1. **One real Polygon Amoy transaction** — proof anchor OR Smart LC fund (Polygonscan URL in UI)
+2. **Live trade path** — create order + invoice in UI hitting real API (not seed data)
+3. **Settlement path** — payment intent → escrow → ledger (partially exists; remove demo fallback)
+4. **3-minute narrative** — Jebel Ali supplier, buyer confirms, financier advances, stablecoin escrow releases
+
+What does **not** move the score much before submit:
+
+- Full landing page parity
+- All 31 workspace pages
+- CDK / AggLayer roadmap slides without a live tx
+
+### Honest risks in front of judges
+
+| If judge asks… | Honest answer |
+|----------------|---------------|
+| “Is it on-chain?” | Contracts deployed on Amoy; relayer must show **real tx**, not SHA-256 simulation |
+| “Is it production?” | Pilot-ready architecture; KYB/logistics/legal need partners |
+| “Why not merchant POS?” | We solve **B2B trade finance**, not retail checkout — aligned to Problem #1 |
+| “AED stablecoin?” | Settlement layer designed for AED stablecoin; demo uses MockUSDC on Amoy |
+
+### Pre-submit gates (add to Phase 7 or hackathon sprint)
+
+- [ ] Problem statement explicitly cites **Hackathon Problem #1** (SME trade finance)
+- [ ] Demo video/script follows: invoice → verify → anchor → receivable → LC → stablecoin settlement
+- [ ] At least **one Polygonscan transaction** linked from Proof Ledger or settlement UI
+- [ ] Contracts deployed to Polygon Amoy with addresses in `.env`
+- [ ] Team can explain UAE corridor (Jebel Ali) in under 60 seconds
+- [ ] Application does **not** overclaim POS, remittance app, or live AED issuance
+
+---
+
 ## Current status (update as work progresses)
 
 | Phase | Status | Notes |
