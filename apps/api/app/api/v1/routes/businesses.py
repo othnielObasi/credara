@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Header
+from fastapi import APIRouter, Depends, Header, HTTPException
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.idempotency import assert_idempotent
@@ -32,6 +32,8 @@ def list_businesses(db: Session = Depends(get_db), user: User = Depends(require_
 @router.post('/{business_id}/verify', response_model=BusinessRead)
 def verify_business(business_id: str, db: Session = Depends(get_db), user: User = Depends(require_roles(Role.ADMIN))):
     business = db.get(Business, business_id)
+    if not business:
+        raise HTTPException(404, 'Business not found')
     business.status = 'verified'
     record_audit(db, user.id, 'business.verified', 'business', business.id)
     db.commit(); db.refresh(business)

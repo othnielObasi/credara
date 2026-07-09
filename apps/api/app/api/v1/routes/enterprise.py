@@ -77,7 +77,7 @@ from app.schemas.enterprise import (
 )
 from app.schemas.trade import OrderRead
 from app.services.audit import record_audit
-from app.services.polygon import explorer_tx_url, simulate_tx_hash
+from app.services.polygon import explorer_tx_url, publish_tx
 from app.services.proofs import create_proof_bundle
 from app.services.scoring import calculate_trade_credit_score
 
@@ -1087,7 +1087,8 @@ def fund_smart_lc(
     lc = _get_or_404(db, SmartLC, lc_id, 'Smart LC')
     before = {'status': lc.status}
     lc.status = SmartLCStatus.FUNDED.value
-    lc.polygon_tx_hash = simulate_tx_hash(f'fund:{lc.id}:{lc.amount}')
+    tx_hash, _on_chain = publish_tx(f'fund:{lc.id}:{lc.amount}')
+    lc.polygon_tx_hash = tx_hash
     db.add(BlockchainOutbox(action='SMART_LC_FUNDED', payload_json={'smart_lc_id': lc.id, 'amount': float(lc.amount)}, status='sent', tx_hash=lc.polygon_tx_hash))
     create_proof_bundle(db, lc.seller_business_id, 'SMART_LC_FUNDED', {'smart_lc_id': lc.id, 'tx_hash': lc.polygon_tx_hash}, order_id=lc.order_id)
     record_audit(db, user.id, 'smart_lc.funded', 'smart_lc', lc.id, {'before': before, 'after': {'status': lc.status}, 'reason': payload.reason if payload else None})
@@ -1108,7 +1109,8 @@ def release_smart_lc(
         raise HTTPException(400, 'Cannot release a disputed Smart LC')
     before = {'status': lc.status}
     lc.status = SmartLCStatus.RELEASED.value
-    lc.polygon_tx_hash = simulate_tx_hash(f'release:{lc.id}:{lc.amount}')
+    tx_hash, _on_chain = publish_tx(f'release:{lc.id}:{lc.amount}')
+    lc.polygon_tx_hash = tx_hash
     order = db.get(Order, lc.order_id)
     if order:
         order.status = OrderStatus.CLOSED.value
@@ -1149,7 +1151,8 @@ def refund_smart_lc(
     lc = _get_or_404(db, SmartLC, lc_id, 'Smart LC')
     before = {'status': lc.status}
     lc.status = SmartLCStatus.REFUNDED.value
-    lc.polygon_tx_hash = simulate_tx_hash(f'refund:{lc.id}:{lc.amount}')
+    tx_hash, _on_chain = publish_tx(f'refund:{lc.id}:{lc.amount}')
+    lc.polygon_tx_hash = tx_hash
     db.add(BlockchainOutbox(action='SMART_LC_REFUNDED', payload_json={'smart_lc_id': lc.id, 'amount': float(lc.amount)}, status='sent', tx_hash=lc.polygon_tx_hash))
     create_proof_bundle(db, lc.seller_business_id, 'SMART_LC_REFUNDED', {'smart_lc_id': lc.id, 'tx_hash': lc.polygon_tx_hash}, order_id=lc.order_id)
     record_audit(db, user.id, 'smart_lc.refunded', 'smart_lc', lc.id, {'before': before, 'after': {'status': lc.status}, 'reason': payload.reason if payload else None})
@@ -1169,7 +1172,8 @@ def attest_trade_credit_score(
     if not score:
         score = calculate_trade_credit_score(db, business_id)
         db.flush()
-    score.polygon_tx_hash = simulate_tx_hash(f'score:{score.id}:{score.score}')
+    tx_hash, _on_chain = publish_tx(f'score:{score.id}:{score.score}', proof_hash=score.proof_hash)
+    score.polygon_tx_hash = tx_hash
     db.add(BlockchainOutbox(action='CREDIT_SCORE_ATTESTED', payload_json={'trust_score_id': score.id, 'business_id': business_id, 'score': score.score}, status='sent', tx_hash=score.polygon_tx_hash))
     create_proof_bundle(db, business_id, 'CREDIT_SCORE_ATTESTED', {'trust_score_id': score.id, 'score': score.score, 'tx_hash': score.polygon_tx_hash})
     record_audit(db, user.id, 'credit_score.attested', 'trust_score', score.id, {'score': score.score, 'tx_hash': score.polygon_tx_hash})

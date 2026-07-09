@@ -238,12 +238,12 @@ Do **not** skip ahead. Each phase has exit criteria.
 
 **Start only after:** Pre-build gates above are checked.
 
-- [ ] Typed API layer: `apps/web/lib/api/` (`client`, `auth`, `real`, `trade`)
-- [ ] React Query provider in `app/layout.tsx`
-- [ ] Design tokens: `apps/web/styles/tokens.css` aligned with standalone
-- [ ] Next.js `/api/v1` rewrite in `next.config.ts`
-- [ ] Remove duplicate fetch logic from components
-- [ ] Delete or wire `apps/web/lib/api.ts` dead enterprise client
+- [x] Typed API layer: `apps/web/lib/api/` (`client`, `auth`, `real`, `trade`)
+- [x] React Query provider in `app/layout.tsx`
+- [x] Design tokens: `apps/web/styles/tokens.css` aligned with standalone
+- [x] Next.js `/api/v1` rewrite in `next.config.ts`
+- [x] Remove duplicate fetch logic from components
+- [x] Delete or wire `apps/web/lib/api.ts` dead enterprise client
 
 **Exit criteria:** Auth works; one authenticated API call via shared client; no new inline `fetch` in components.
 
@@ -251,9 +251,9 @@ Do **not** skip ahead. Each phase has exit criteria.
 
 ### Phase 1 — Landing + shell parity
 
-- [ ] Port landing sections (hero, process flow, Polygon, UAE corridor, footer)
-- [ ] Auth gate: sign up / sign in (real JWT)
-- [ ] Workspace shell: sidebar, tenant card, live status bar, role nav from server
+- [x] Port landing sections (hero, process flow, Polygon, UAE corridor, footer)
+- [x] Auth gate: sign up / sign in (real JWT)
+- [x] Workspace shell: sidebar, tenant card, live status bar, role nav from server
 - [ ] Mobile sidebar/backdrop
 
 **Exit criteria:** Landing visually matches standalone; authenticated user enters workspace shell.
@@ -262,14 +262,14 @@ Do **not** skip ahead. Each phase has exit criteria.
 
 ### Phase 2 — Settlement slice (production-grade)
 
-- [ ] Wallets — `GET/POST /real/wallets`
-- [ ] Payment intents — create / submit / confirm
-- [ ] Escrows — create / fund / release
-- [ ] Ledger — `GET /real/ledger`
-- [ ] Reconciliation — `POST /real/reconciliation/{type}/{id}`
+- [x] Wallets — `GET/POST /real/wallets`
+- [x] Payment intents — create / submit / confirm
+- [x] Escrows — create / fund / release
+- [x] Ledger — `GET /real/ledger`
+- [x] Reconciliation — `POST /real/reconciliation/{type}/{id}`
 - [ ] Settings save — `PUT /real/settings`
-- [ ] API keys — `POST /real/api-keys`
-- [ ] **No demo fallback** after auth on these pages
+- [x] API keys — `POST /real/api-keys`
+- [x] **No demo fallback** after auth on these pages
 
 **Exit criteria:** Full settlement path works with empty initial state; data persists across refresh.
 
@@ -288,8 +288,8 @@ Do **not** skip ahead. Each phase has exit criteria.
 
 ### Phase 4 — Trade core (solves the real problem)
 
-- [ ] Order list + create — `GET/POST /trade/orders`
-- [ ] Invoice list + create — `GET/POST /trade/invoices`
+- [x] Order list + create — `GET/POST /trade/orders`
+- [x] Invoice list + create — `GET/POST /trade/invoices`
 - [ ] Buyer confirm invoice
 - [ ] Delivery proof submit
 - [ ] Receivable create (gated by invoice status)
@@ -446,12 +446,12 @@ What does **not** move the score much before submit:
 
 | Phase | Status | Notes |
 |-------|--------|-------|
-| Pre-build gates | ⬜ Not started | Checklist created 2026-07-09 |
-| Phase 0 | ⬜ Not started | |
-| Phase 1 | ⬜ Not started | |
-| Phase 2 | 🟡 Partial | Settlement wired in old `credara-live-app.tsx`; needs hardening |
+| Pre-build gates | ✅ Complete | Checklist created 2026-07-09 |
+| Phase 0 | ✅ Complete | API layer, React Query, tokens, rewrites |
+| Phase 1 | 🟡 In progress | Landing + auth overlay + server nav; mobile sidebar pending |
+| Phase 2 | 🟡 In progress | No demo fallback; settings save pending |
 | Phase 3 | ⬜ Not started | |
-| Phase 4 | ⬜ Not started | |
+| Phase 4 | 🟡 In progress | Orders/invoices UI wired; buyer confirm + delivery pending |
 | Phase 5–7 | ⬜ Not started | |
 
 ---

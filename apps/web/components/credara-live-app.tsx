@@ -1,6 +1,10 @@
 'use client';
 
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
+import LandingPage from './landing/landing-page';
+import { TradeWorkflowPanel } from './workspace/trade-workflow-panel';
+import { clearAuthSession, loginUser, realApi, registerUser, setAuthSession } from '../lib/api';
+import { fmt, statusTone, titleCase } from '../lib/format';
 
 type Role = 'sme' | 'buyer' | 'financier' | 'admin' | 'developer';
 type PageKey =
@@ -102,6 +106,7 @@ type SettingsState = {
 
 type AppState = {
   workspaceId: string | null;
+  businessId: string | null;
   userId: string | null;
   token: string | null;
   connected: boolean;
@@ -109,6 +114,7 @@ type AppState = {
   lastSync: string | null;
   page: PageKey;
   role: Role;
+  allowedPages: PageKey[];
   settings: SettingsState;
   wallets: Wallet[];
   paymentIntents: PaymentIntent[];
@@ -182,6 +188,7 @@ const pageTitles: Record<PageKey, [string, string]> = {
 
 const initialState: AppState = {
   workspaceId: null,
+  businessId: null,
   userId: null,
   token: null,
   connected: false,
@@ -189,59 +196,36 @@ const initialState: AppState = {
   lastSync: null,
   page: 'dashboard',
   role: 'sme',
+  allowedPages: roleAllowed.sme,
   settings: {
-    profile: { name: 'Amara Okafor', email: 'amara@acme.example', language: 'English', timezone: 'UTC +0' },
-    workspace: { name: 'Acme Textiles Ltd', role: 'SME', environment: 'sandbox', region: 'UAE / UK' },
+    profile: { name: '', email: '', language: 'English', timezone: 'UTC +0' },
+    workspace: { name: '', role: '', environment: 'sandbox', region: '' },
     notifications: { payment: true, proof: true, kyb: true, invites: true },
-    security: { mfa: true, sso: false, sessionTimeout: '30 minutes' },
-    developer: { apiKey: 'No live key generated', webhook: 'https://api.acme.example/credara/webhooks', mode: 'sandbox', events: 'proof.anchored, receivable.created, payment.confirmed' },
+    security: { mfa: false, sso: false, sessionTimeout: '30 minutes' },
+    developer: { apiKey: 'No live key generated', webhook: '', mode: 'sandbox', events: 'proof.anchored, receivable.created, payment.confirmed' },
     admin: { riskRules: true, auditExport: true },
   },
-  wallets: [
-    { id: 'WAL-SME-001', owner: 'Acme Textiles Ltd', role: 'sme', type: 'Business wallet', address: '0xB8fA1bA7C0E9dA4F91A2bC8821aD98aE2213B011', network: 'Polygon Amoy', asset: 'MockUSDC', stablecoinBalance: 50000, polBalance: 18, status: 'Active' },
-    { id: 'WAL-FIN-001', owner: 'Credara Capital', role: 'financier', type: 'Treasury wallet', address: '0xF1nA9cE002bcA77e0199882fA09331CfedA01009', network: 'Polygon Amoy', asset: 'MockUSDC', stablecoinBalance: 250000, polBalance: 44.1, status: 'Active' },
-  ],
-  paymentIntents: [
-    { id: 'PI-2026-001', type: 'Smart LC escrow funding', payer: 'Global Retail Ltd', payee: 'SmartLC LC-015', amount: 24500, asset: 'MockUSDC', status: 'Confirmed', tx: '0x9a20...19d2a', confirmations: 5, requiredConfirmations: 3, reference: 'LC-015' },
-  ],
-  ledger: [
-    { time: 'Jun 04 09:35:42', track: 'Seller', event: 'advance-payout', source: 'Credara Capital', description: 'Financier advanced 80% of receivable value to seller wallet.', amount: 19600, status: 'Confirmed', verifier: '0xadv...45fa', docs: ['Invoice', 'Receipt', 'Proof'], role: 'sme', reference: 'REC-045' },
-    { time: 'Jun 04 09:40:11', track: 'Buyer', event: 'escrow-funded', source: 'Buyer wallet', description: 'Smart LC escrow funded and held pending release conditions.', amount: 24500, status: 'Confirmed', verifier: '0x9a20...19d2a', docs: ['Contract', 'Receipt', 'Proof'], role: 'buyer', reference: 'LC-015' },
-  ],
-  escrows: [
-    { id: 'ESC-015', smartLcId: 'LC-015', contract: '0xSLC...015', asset: 'MockUSDC', requiredAmount: 24500, fundedAmount: 24500, fundingParty: 'Global Retail Ltd', seller: 'Acme Textiles Ltd', status: 'Funded', confirmations: 5, releaseCondition: 'delivery verified + no open dispute', refundCondition: 'deadline missed or dispute upheld' },
-  ],
+  wallets: [],
+  paymentIntents: [],
+  ledger: [],
+  escrows: [],
   apiKeys: [],
-  invitations: [
-    { id: 'INVITE-001', type: 'Trade Contract', from: 'Global Retail Ltd', to: 'Acme Textiles Ltd', target: 'TC-2026-0012', status: 'Pending action', role: 'seller', message: 'Review and accept trade contract' },
-    { id: 'INVITE-002', type: 'Invoice Confirmation', from: 'Acme Textiles Ltd', to: 'Global Retail Ltd', target: 'INV-2025-045', status: 'Accepted', role: 'buyer', message: 'Buyer confirmed invoice obligation' },
-  ],
-  members: [
-    { name: 'Amara Okafor', email: 'amara@acme.example', role: 'SME Admin', status: 'Active' },
-    { name: 'Daniel Reed', email: 'daniel@globalretail.example', role: 'Buyer Ops', status: 'Invited' },
-    { name: 'Maya Chen', email: 'maya@credaracapital.example', role: 'Underwriter', status: 'Active' },
-  ],
-  reconciliation: { expected: 24500, onChain: 24500, ledger: 24500, variance: 0, smartLcState: 'Funded', lastChecked: 'Not run', decision: 'Valid / reconciled' },
+  invitations: [],
+  members: [],
+  reconciliation: { expected: 0, onChain: 0, ledger: 0, variance: 0, smartLcState: '—', lastChecked: 'Not run', decision: '—' },
   authMode: 'signup',
 };
 
-const apiBase = process.env.NEXT_PUBLIC_API_BASE || '/api/v1';
-const realBase = `${apiBase}/real`;
-
-function fmt(value: number | string | undefined) {
-  return `£${Number(value || 0).toLocaleString('en-GB')}`;
-}
-
-function titleCase(value: string | undefined) {
-  return String(value || '').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
-function statusTone(status: string) {
-  if (/confirmed|active|ready|verified|anchored|tokenized|released|approved|low|valid|funded/i.test(status)) return 'green';
-  if (/pending|submitted|review|sent|offer|medium|partial/i.test(status)) return 'amber';
-  if (/disputed|rejected|high|failed|blocked/i.test(status)) return 'red';
-  return 'grey';
-}
+const emptyAuthForm = {
+  fullName: '',
+  email: '',
+  password: '',
+  businessName: '',
+  role: 'sme' as Role,
+  country: 'AE',
+  registrationNumber: '',
+  sector: 'Trade finance',
+};
 
 function Pill({ children, tone }: { children: string; tone?: string }) {
   return <span className={`pill ${tone || statusTone(children)}`}>{children}</span>;
@@ -250,7 +234,8 @@ function Pill({ children, tone }: { children: string; tone?: string }) {
 function useCredaraApp(startInWorkspace: boolean) {
   const [state, setState] = useState<AppState>({ ...initialState, page: startInWorkspace ? 'dashboard' : 'dashboard' });
   const [toast, setToast] = useState<{ title: string; message?: string } | null>(null);
-  const [authForm, setAuthForm] = useState({ fullName: 'Amara Okafor', email: 'amara@acme.example', password: '', businessName: 'Acme Textiles Ltd', role: 'sme' as Role, country: 'AE', registrationNumber: 'AE-TRD-2026-0012', sector: 'Trade finance' });
+  const [authForm, setAuthForm] = useState(emptyAuthForm);
+  const [showAuth, setShowAuth] = useState(false);
 
   const notify = (title: string, message?: string) => {
     setToast({ title, message });
@@ -259,101 +244,109 @@ function useCredaraApp(startInWorkspace: boolean) {
 
   const withState = (patch: Partial<AppState>) => setState((current) => ({ ...current, ...patch }));
 
-  async function authFetch(path: string, options: RequestInit = {}) {
-    const token = state.token || (typeof window !== 'undefined' ? localStorage.getItem('credara.authToken') : null);
-    const res = await fetch(`${realBase}${path}`, {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        ...(options.headers || {}),
-      },
-    });
-    if (!res.ok) throw new Error((await res.text()) || `HTTP ${res.status}`);
-    return res.json();
-  }
-
-  async function platformFetch(path: string, options: RequestInit = {}) {
-    const res = await fetch(`${apiBase}${path}`, options);
-    if (!res.ok) throw new Error((await res.text()) || `HTTP ${res.status}`);
-    return res.json();
-  }
-
   function rememberAuth(token: string, role: Role) {
-    localStorage.setItem('credara.authToken', token);
-    localStorage.setItem('credara.role', role);
+    setAuthSession(token, role);
     withState({ token, role });
   }
 
+  async function loadNavigation(role: Role) {
+    try {
+      const nav = await realApi.navigationForRole(role);
+      const allowed = (nav.allowed_pages || roleAllowed[role]).filter((p): p is PageKey => p in pageTitles);
+      withState({ allowedPages: allowed.length ? allowed : roleAllowed[role] });
+      return allowed;
+    } catch {
+      withState({ allowedPages: roleAllowed[role] });
+      return roleAllowed[role];
+    }
+  }
+
   async function loadWorkspace() {
-    const data = await authFetch('/workspaces/me');
+    const data = await realApi.workspacesMe();
     const first = data.workspaces?.[0];
+    const role = (data.user?.role as Role) || state.role;
     const patch: Partial<AppState> = {
       userId: data.user?.id || state.userId,
-      role: (data.user?.role as Role) || state.role,
+      role,
       connected: true,
       error: null,
       lastSync: new Date().toLocaleTimeString(),
     };
     if (first) {
       patch.workspaceId = first.workspace.id;
+      patch.businessId = first.workspace.business_id || first.business?.id || null;
       patch.settings = {
         ...state.settings,
-        profile: { ...state.settings.profile, name: data.user?.full_name || state.settings.profile.name, email: data.user?.email || state.settings.profile.email },
-        workspace: { ...state.settings.workspace, name: first.workspace.name, role: first.workspace.primary_role, environment: first.workspace.environment, region: first.workspace.region || state.settings.workspace.region },
+        profile: {
+          ...state.settings.profile,
+          name: data.user?.full_name || state.settings.profile.name,
+          email: data.user?.email || state.settings.profile.email,
+        },
+        workspace: {
+          ...state.settings.workspace,
+          name: first.workspace.name,
+          role: first.workspace.primary_role,
+          environment: first.workspace.environment,
+          region: first.workspace.region || state.settings.workspace.region,
+        },
       };
     }
     setState((current) => ({ ...current, ...patch }));
+    await loadNavigation(role);
     return first?.workspace.id as string | undefined;
   }
 
   async function ensureWorkspace() {
     const existing = state.workspaceId || (await loadWorkspace());
     if (existing) return existing;
-    const p = personas[state.role];
-    const data = await authFetch('/onboarding/start', {
-      method: 'POST',
-      body: JSON.stringify({
-        role: state.role,
-        business_name: authForm.businessName || p[0],
-        country: authForm.country,
-        registration_number: authForm.registrationNumber,
-        sector: authForm.sector,
-        wallet_address: state.wallets[0]?.address,
-      }),
+    const data = await realApi.startOnboarding({
+      role: state.role,
+      business_name: authForm.businessName || 'My Business',
+      country: authForm.country,
+      registration_number: authForm.registrationNumber || `REG-${Date.now()}`,
+      sector: authForm.sector,
     });
-    withState({ workspaceId: data.workspace.id, userId: data.user.id, connected: true, lastSync: new Date().toLocaleTimeString() });
+    withState({
+      workspaceId: data.workspace.id,
+      businessId: data.workspace.business_id,
+      userId: data.user.id,
+      connected: true,
+      lastSync: new Date().toLocaleTimeString(),
+    });
     return data.workspace.id as string;
   }
 
   async function loadOperationalState(workspaceId?: string) {
     const id = workspaceId || state.workspaceId || (await ensureWorkspace());
-    const q = `workspace_id=${encodeURIComponent(id)}`;
     const [settings, apiKeys, wallets, payments, escrows, ledger] = await Promise.all([
-      authFetch(`/settings?${q}`).catch(() => null),
-      authFetch(`/api-keys?${q}`).catch(() => []),
-      authFetch(`/wallets?${q}`).catch(() => []),
-      authFetch(`/payment-intents?${q}`).catch(() => []),
-      authFetch(`/escrows?${q}`).catch(() => []),
-      authFetch(`/ledger?${q}`).catch(() => []),
+      realApi.getSettings(id).catch(() => null),
+      realApi.listApiKeys(id).catch(() => []),
+      realApi.listWallets(id).catch(() => []),
+      realApi.listPaymentIntents(id).catch(() => []),
+      realApi.listEscrows(id).catch(() => []),
+      realApi.listLedger(id).catch(() => []),
     ]);
     setState((current) => ({
       ...current,
       settings: settings
         ? {
-            profile: { ...current.settings.profile, ...(settings.profile || {}) },
-            workspace: { ...current.settings.workspace, ...(settings.workspace || {}) },
-            notifications: { ...current.settings.notifications, ...(settings.notifications || {}) },
-            security: { ...current.settings.security, ...(settings.security || {}) },
-            developer: { ...current.settings.developer, ...(settings.developer || {}), apiKey: apiKeys[0]?.key_prefix ? `${apiKeys[0].key_prefix}...` : current.settings.developer.apiKey },
-            admin: { ...current.settings.admin, ...(settings.admin || {}) },
+            profile: { ...current.settings.profile, ...(settings.profile as Record<string, string | boolean> || {}) },
+            workspace: { ...current.settings.workspace, ...(settings.workspace as Record<string, string | boolean> || {}) },
+            notifications: { ...current.settings.notifications, ...(settings.notifications as Record<string, boolean> || {}) },
+            security: { ...current.settings.security, ...(settings.security as Record<string, string | boolean> || {}) },
+            developer: {
+              ...current.settings.developer,
+              ...(settings.developer as Record<string, string> || {}),
+              apiKey: apiKeys[0]?.key_prefix ? `${apiKeys[0].key_prefix}...` : current.settings.developer.apiKey,
+            },
+            admin: { ...current.settings.admin, ...(settings.admin as Record<string, string | boolean> || {}) },
           }
         : current.settings,
-      apiKeys,
-      wallets: wallets.length ? wallets.map(mapWallet) : current.wallets,
-      paymentIntents: payments.length ? payments.map((p: Record<string, unknown>) => mapPayment(p, current.role, current.settings.workspace.name as string)) : current.paymentIntents,
-      escrows: escrows.length ? escrows.map(mapEscrow) : current.escrows,
-      ledger: ledger.length ? ledger.map(mapLedger) : current.ledger,
+      apiKeys: apiKeys as AppState['apiKeys'],
+      wallets: wallets.map(mapWallet),
+      paymentIntents: payments.map((p) => mapPayment(p, current.role, current.settings.workspace.name as string)),
+      escrows: escrows.map(mapEscrow),
+      ledger: ledger.map(mapLedger),
       connected: true,
       error: null,
       lastSync: new Date().toLocaleTimeString(),
@@ -364,15 +357,17 @@ function useCredaraApp(startInWorkspace: boolean) {
     event.preventDefault();
     if (authForm.password.length < 8) return notify('Password required', 'Use at least 8 characters.');
     try {
-      const auth = await platformFetch('/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: authForm.email, full_name: authForm.fullName, password: authForm.password, role: authForm.role }),
+      const auth = await registerUser({
+        email: authForm.email,
+        full_name: authForm.fullName,
+        password: authForm.password,
+        role: authForm.role,
       });
-      rememberAuth(auth.access_token, auth.role);
-      withState({ role: auth.role, page: 'onboarding' });
-      const id = await ensureWorkspace();
-      await loadOperationalState(id);
+      rememberAuth(auth.access_token, auth.role as Role);
+      withState({ role: auth.role as Role, page: 'onboarding' });
+      setShowAuth(false);
+      const wsId = await ensureWorkspace();
+      await loadOperationalState(wsId);
       notify('Workspace created', 'Credara is now using live backend records.');
     } catch (error) {
       notify('Signup failed', error instanceof Error ? error.message.slice(0, 140) : 'Unknown error');
@@ -382,11 +377,9 @@ function useCredaraApp(startInWorkspace: boolean) {
   async function signIn(event: FormEvent) {
     event.preventDefault();
     try {
-      const form = new URLSearchParams();
-      form.set('username', authForm.email);
-      form.set('password', authForm.password);
-      const auth = await platformFetch('/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: form.toString() });
-      rememberAuth(auth.access_token, auth.role);
+      const auth = await loginUser(authForm.email, authForm.password);
+      rememberAuth(auth.access_token, auth.role as Role);
+      setShowAuth(false);
       const id = await loadWorkspace();
       await loadOperationalState(id);
       notify('Signed in', 'Live workspace loaded.');
@@ -397,7 +390,9 @@ function useCredaraApp(startInWorkspace: boolean) {
 
   async function connectLive() {
     try {
-      if (!state.token && !localStorage.getItem('credara.authToken')) return notify('Sign in required', 'Create or sign into a workspace first.');
+      if (!state.token && typeof window !== 'undefined' && !localStorage.getItem('credara.authToken')) {
+        return notify('Sign in required', 'Create or sign into a workspace first.');
+      }
       const id = await loadWorkspace();
       await loadOperationalState(id);
       notify('Backend connected', 'Persistent records are loaded.');
@@ -408,17 +403,26 @@ function useCredaraApp(startInWorkspace: boolean) {
   }
 
   function signOut() {
-    localStorage.removeItem('credara.authToken');
-    localStorage.removeItem('credara.role');
+    clearAuthSession();
     setState({ ...initialState });
+    setAuthForm(emptyAuthForm);
+    setShowAuth(false);
     notify('Signed out', 'You are back on the public surface.');
   }
 
   async function createApiKey() {
     try {
       const workspaceId = await ensureWorkspace();
-      const data = await authFetch('/api-keys', { method: 'POST', body: JSON.stringify({ workspace_id: workspaceId, name: 'Default integration key', scopes: ['proof:read', 'receivables:write', 'payments:write'] }) });
-      setState((current) => ({ ...current, settings: { ...current.settings, developer: { ...current.settings.developer, apiKey: data.api_key } }, apiKeys: [{ id: data.id, name: 'Default integration key', key_prefix: data.key_prefix, scopes: data.scopes, status: data.status }, ...current.apiKeys] }));
+      const data = await realApi.createApiKey({
+        workspace_id: workspaceId,
+        name: 'Default integration key',
+        scopes: ['proof:read', 'receivables:write', 'payments:write'],
+      });
+      setState((current) => ({
+        ...current,
+        settings: { ...current.settings, developer: { ...current.settings.developer, apiKey: String(data.api_key || data.key_prefix) } },
+        apiKeys: [{ id: String(data.id), name: 'Default integration key', key_prefix: String(data.key_prefix), scopes: data.scopes as string[], status: String(data.status) }, ...current.apiKeys],
+      }));
       notify('API key generated', 'Copy it now; the backend stores only the hash.');
     } catch (error) {
       notify('API key failed', error instanceof Error ? error.message.slice(0, 140) : 'Unknown error');
@@ -428,19 +432,32 @@ function useCredaraApp(startInWorkspace: boolean) {
   async function createPaymentIntent(): Promise<PaymentIntent | null> {
     try {
       const workspaceId = await ensureWorkspace();
-      const walletAddress = state.wallets[0]?.address || initialState.wallets[0].address;
-      let wallets = await authFetch(`/wallets?workspace_id=${encodeURIComponent(workspaceId)}`);
-      let wallet = wallets.find((w: Record<string, unknown>) => w.address === walletAddress);
+      let wallets = await realApi.listWallets(workspaceId);
+      let wallet = wallets[0];
       if (!wallet) {
-        wallet = await authFetch('/wallets', { method: 'POST', body: JSON.stringify({ workspace_id: workspaceId, owner_name: state.settings.workspace.name, address: walletAddress, stablecoin_balance: 50000, gas_balance: 18 }) });
+        wallet = await realApi.createWallet({
+          workspace_id: workspaceId,
+          owner_name: state.settings.workspace.name || 'Workspace wallet',
+          address: `0x${Date.now().toString(16).padStart(40, '0').slice(0, 40)}`,
+          stablecoin_balance: 0,
+          gas_balance: 0,
+        });
       }
-      const intent = await authFetch('/payment-intents', {
-        method: 'POST',
-        body: JSON.stringify({ workspace_id: workspaceId, intent_type: 'Smart LC escrow funding', payer_wallet_id: wallet.id, payee_reference: 'SmartLC LC-015', reference_type: 'smart_lc', reference_id: 'LC-015', amount: 24500, idempotency_key: `ui-${Date.now()}` }),
+      const amount = state.escrows[0]?.requiredAmount || state.paymentIntents[0]?.amount || 1000;
+      const referenceId = state.escrows[0]?.smartLcId || `LC-${Date.now().toString().slice(-4)}`;
+      const intent = await realApi.createPaymentIntent({
+        workspace_id: workspaceId,
+        intent_type: 'Smart LC escrow funding',
+        payer_wallet_id: wallet.id,
+        payee_reference: `SmartLC ${referenceId}`,
+        reference_type: 'smart_lc',
+        reference_id: referenceId,
+        amount,
+        idempotency_key: `ui-${Date.now()}`,
       });
-      const mapped = mapPayment({ ...intent, intent_type: 'Smart LC escrow funding', reference_id: 'LC-015' }, state.role, state.settings.workspace.name as string);
+      const mapped = mapPayment({ ...intent, intent_type: 'Smart LC escrow funding', reference_id: referenceId }, state.role, state.settings.workspace.name as string);
       setState((current) => ({ ...current, paymentIntents: [mapped, ...current.paymentIntents] }));
-      notify('Payment intent persisted', intent.id);
+      notify('Payment intent persisted', String(intent.id));
       return mapped;
     } catch (error) {
       notify('Payment intent failed', error instanceof Error ? error.message.slice(0, 140) : 'Unknown error');
@@ -455,12 +472,17 @@ function useCredaraApp(startInWorkspace: boolean) {
         notify('No payment intent', 'Create one first.');
         return null;
       }
-      await authFetch(`/payment-intents/${latest.id}/submit`, { method: 'POST', body: JSON.stringify({ tx_hash: `0xui${Date.now().toString(16)}`, confirmations: 1 }) });
-      const confirmed = await authFetch(`/payment-intents/${latest.id}/confirm`, { method: 'POST', body: JSON.stringify({ confirmations: 3, on_chain_amount: latest.amount }) });
-      setState((current) => ({ ...current, paymentIntents: current.paymentIntents.map((p) => (p.id === latest.id ? { ...p, status: titleCase(confirmed.status), confirmations: confirmed.confirmations, tx: 'confirmed on backend' } : p)) }));
+      await realApi.submitPaymentIntent(latest.id, { tx_hash: `0xui${Date.now().toString(16)}`, confirmations: 1 });
+      const confirmed = await realApi.confirmPaymentIntent(latest.id, { confirmations: 3, on_chain_amount: latest.amount });
+      setState((current) => ({
+        ...current,
+        paymentIntents: current.paymentIntents.map((p) =>
+          p.id === latest.id ? { ...p, status: titleCase(String(confirmed.status)), confirmations: Number(confirmed.confirmations), tx: String(confirmed.tx_hash || 'confirmed on backend') } : p,
+        ),
+      }));
       await refreshLedger();
       notify('Payment confirmed', 'Ledger entries were generated by the backend.');
-      return { ...latest, status: titleCase(confirmed.status), confirmations: confirmed.confirmations };
+      return { ...latest, status: titleCase(String(confirmed.status)), confirmations: Number(confirmed.confirmations) };
     } catch (error) {
       notify('Confirmation failed', error instanceof Error ? error.message.slice(0, 140) : 'Unknown error');
       return null;
@@ -473,9 +495,19 @@ function useCredaraApp(startInWorkspace: boolean) {
 
   async function ensureEscrow() {
     const workspaceId = await ensureWorkspace();
-    const escrows = await authFetch(`/escrows?workspace_id=${encodeURIComponent(workspaceId)}`);
+    const escrows = await realApi.listEscrows(workspaceId);
     if (escrows[0]) return escrows[0];
-    return authFetch('/escrows', { method: 'POST', body: JSON.stringify({ workspace_id: workspaceId, smart_lc_id: 'LC-015', contract_address: '0xSLC...015', required_amount: 24500, funding_party: state.settings.workspace.name, seller: 'Acme Textiles Ltd', asset: 'MockUSDC' }) });
+    const amount = state.paymentIntents[0]?.amount || 1000;
+    const lcId = `LC-${Date.now().toString().slice(-4)}`;
+    return realApi.createEscrow({
+      workspace_id: workspaceId,
+      smart_lc_id: lcId,
+      contract_address: `0xSLC${Date.now().toString(16).slice(0, 8)}`,
+      required_amount: amount,
+      funding_party: state.settings.workspace.name || 'Buyer',
+      seller: state.settings.workspace.name || 'Seller',
+      asset: 'MockUSDC',
+    });
   }
 
   async function fundEscrow() {
@@ -484,8 +516,11 @@ function useCredaraApp(startInWorkspace: boolean) {
       if (latest && latest.status !== 'Confirmed') latest = await confirmPayment(latest);
       if (!latest) throw new Error('No confirmed payment intent available.');
       const escrow = await ensureEscrow();
-      const funded = await authFetch(`/escrows/${escrow.id}/fund`, { method: 'POST', body: JSON.stringify({ payment_intent_id: latest.id }) });
-      setState((current) => ({ ...current, escrows: [mapEscrow({ ...escrow, status: funded.status, funded_amount: funded.funded_amount, required_amount: funded.required_amount })] }));
+      const funded = await realApi.fundEscrow(String(escrow.id), { payment_intent_id: latest.id });
+      setState((current) => ({
+        ...current,
+        escrows: [mapEscrow({ ...escrow, status: funded.status, funded_amount: funded.funded_amount, required_amount: funded.required_amount })],
+      }));
       await refreshLedger();
       notify('Escrow funded', 'Payment intent, escrow and ledger are reconciled.');
     } catch (error) {
@@ -496,8 +531,13 @@ function useCredaraApp(startInWorkspace: boolean) {
   async function refreshLedger() {
     try {
       const workspaceId = await ensureWorkspace();
-      const rows = await authFetch(`/ledger?workspace_id=${encodeURIComponent(workspaceId)}`);
-      setState((current) => ({ ...current, ledger: rows.length ? rows.map(mapLedger) : current.ledger, lastSync: new Date().toLocaleTimeString(), connected: true }));
+      const rows = await realApi.listLedger(workspaceId);
+      setState((current) => ({
+        ...current,
+        ledger: rows.map(mapLedger),
+        lastSync: new Date().toLocaleTimeString(),
+        connected: true,
+      }));
     } catch (error) {
       notify('Ledger sync failed', error instanceof Error ? error.message.slice(0, 140) : 'Unknown error');
     }
@@ -505,12 +545,23 @@ function useCredaraApp(startInWorkspace: boolean) {
 
   async function reconcile() {
     try {
-      const reference = state.escrows[0]?.id || state.paymentIntents[0]?.id || 'LC-015';
+      const reference = state.escrows[0]?.id || state.paymentIntents[0]?.id;
+      if (!reference) return notify('Nothing to reconcile', 'Create a payment intent or escrow first.');
       const type = state.escrows[0]?.id ? 'escrow' : 'payment_intent';
-      const expected = state.escrows[0]?.requiredAmount || 24500;
-      const rec = await authFetch(`/reconciliation/${type}/${reference}?expected_amount=${encodeURIComponent(expected)}`, { method: 'POST' });
-      withState({ reconciliation: { expected: rec.expected_amount, onChain: rec.on_chain_amount, ledger: rec.internal_ledger_amount, variance: rec.variance, smartLcState: titleCase(rec.smart_lc_state), lastChecked: new Date(rec.checked_at).toLocaleTimeString(), decision: titleCase(rec.decision) } });
-      notify('Reconciliation complete', `Decision: ${titleCase(rec.decision)}.`);
+      const expected = state.escrows[0]?.requiredAmount || state.paymentIntents[0]?.amount || 0;
+      const rec = await realApi.reconcile(type, reference, expected);
+      withState({
+        reconciliation: {
+          expected: Number(rec.expected_amount),
+          onChain: Number(rec.on_chain_amount),
+          ledger: Number(rec.internal_ledger_amount),
+          variance: Number(rec.variance),
+          smartLcState: titleCase(String(rec.smart_lc_state)),
+          lastChecked: new Date(String(rec.checked_at)).toLocaleTimeString(),
+          decision: titleCase(String(rec.decision)),
+        },
+      });
+      notify('Reconciliation complete', `Decision: ${titleCase(String(rec.decision))}.`);
     } catch (error) {
       notify('Reconciliation failed', error instanceof Error ? error.message.slice(0, 140) : 'Unknown error');
     }
@@ -520,8 +571,11 @@ function useCredaraApp(startInWorkspace: boolean) {
     try {
       const escrow = state.escrows[0];
       if (!escrow?.id) throw new Error('No backend escrow available.');
-      const released = await authFetch(`/escrows/${escrow.id}/release`, { method: 'POST', body: JSON.stringify({ reason: 'Release conditions satisfied from Credara UI' }) });
-      setState((current) => ({ ...current, escrows: current.escrows.map((e) => (e.id === escrow.id ? { ...e, status: titleCase(released.status) } : e)) }));
+      const released = await realApi.releaseEscrow(escrow.id, { reason: 'Release conditions satisfied from Credara UI' });
+      setState((current) => ({
+        ...current,
+        escrows: current.escrows.map((e) => (e.id === escrow.id ? { ...e, status: titleCase(String(released.status)) } : e)),
+      }));
       await refreshLedger();
       notify('Payment released', 'Backend escrow release and settlement ledger were updated.');
     } catch (error) {
@@ -530,8 +584,8 @@ function useCredaraApp(startInWorkspace: boolean) {
   }
 
   useEffect(() => {
-    const token = localStorage.getItem('credara.authToken');
-    const role = localStorage.getItem('credara.role') as Role | null;
+    const token = typeof window !== 'undefined' ? localStorage.getItem('credara.authToken') : null;
+    const role = (typeof window !== 'undefined' ? localStorage.getItem('credara.role') : null) as Role | null;
     if (!token) return;
     setState((current) => ({ ...current, token, role: role || current.role }));
     void (async () => {
@@ -544,7 +598,29 @@ function useCredaraApp(startInWorkspace: boolean) {
     })();
   }, []);
 
-  return { state, setState, withState, authForm, setAuthForm, toast, notify, signUp, signIn, signOut, connectLive, createApiKey, createPaymentIntent, confirmLatestPayment, fundEscrow, refreshLedger, reconcile, releaseEscrow };
+  return {
+    state,
+    setState,
+    withState,
+    authForm,
+    setAuthForm,
+    toast,
+    notify,
+    showAuth,
+    setShowAuth,
+    signUp,
+    signIn,
+    signOut,
+    connectLive,
+    createApiKey,
+    createPaymentIntent,
+    confirmLatestPayment,
+    fundEscrow,
+    refreshLedger,
+    reconcile,
+    releaseEscrow,
+    loadNavigation,
+  };
 }
 
 function mapWallet(w: Record<string, unknown>): Wallet {
@@ -566,8 +642,9 @@ function mapLedger(r: Record<string, unknown>): LedgerRow {
 export default function CredaraLiveApp({ startInWorkspace = false }: { startInWorkspace?: boolean }) {
   const app = useCredaraApp(startInWorkspace);
   const { state, setState, authForm, setAuthForm } = app;
-  const currentPersona = personas[state.role];
-  const allowed = roleAllowed[state.role];
+  const workspaceName = (state.settings.workspace.name as string) || personas[state.role][0];
+  const workspaceLabel = (state.settings.workspace.role as string) || personas[state.role][3];
+  const allowed = state.allowedPages.length ? state.allowedPages : roleAllowed[state.role];
   const [title, subtitle] = pageTitles[allowed.includes(state.page) ? state.page : allowed[0]];
   const activePage = allowed.includes(state.page) ? state.page : allowed[0];
 
@@ -578,13 +655,27 @@ export default function CredaraLiveApp({ startInWorkspace = false }: { startInWo
     <main className="credara-app">
       {toastView(app.toast)}
       {!state.token ? (
-        <PublicSurface app={app} />
+        <>
+          <LandingPage
+            onSignIn={() => { setState((c) => ({ ...c, authMode: 'signin' })); app.setShowAuth(true); }}
+            onSignUp={() => { setState((c) => ({ ...c, authMode: 'signup' })); app.setShowAuth(true); }}
+          />
+          {app.showAuth && <AuthOverlay app={app} />}
+        </>
       ) : (
         <div className="workspace-layout">
           <aside className="sidebar">
             <div className="brand-row"><div className="brand-mark">C</div><div><strong>Credara</strong><span>Enterprise trade finance</span></div></div>
-            <div className="tenant-card"><div className="tenant-avatar">{currentPersona[0].split(' ').slice(0, 2).map((w) => w[0]).join('')}</div><div><strong>{currentPersona[0]}</strong><span>{currentPersona[3]}</span></div></div>
-            <select className="role-select" value={state.role} onChange={(e) => setState((current) => ({ ...current, role: e.target.value as Role, page: roleAllowed[e.target.value as Role][0] }))}>
+            <div className="tenant-card"><div className="tenant-avatar">{workspaceName.split(' ').slice(0, 2).map((w) => w[0]).join('') || 'CR'}</div><div><strong>{workspaceName}</strong><span>{workspaceLabel}</span></div></div>
+            <select
+              className="role-select"
+              value={state.role}
+              onChange={(e) => {
+                const role = e.target.value as Role;
+                setState((current) => ({ ...current, role, page: roleAllowed[role][0] }));
+                void app.loadNavigation(role);
+              }}
+            >
               {Object.keys(personas).map((role) => <option key={role} value={role}>{titleCase(role)}</option>)}
             </select>
             <nav className="nav-stack">
@@ -611,26 +702,33 @@ export default function CredaraLiveApp({ startInWorkspace = false }: { startInWo
       )}
     </main>
   );
+}
 
-  function PublicSurface({ app }: { app: ReturnType<typeof useCredaraApp> }) {
-    const isSignup = state.authMode === 'signup';
-    return (
-      <section className="public-shell">
-        <nav className="public-nav"><div className="brand-row"><div className="brand-mark">C</div><strong>credara</strong></div><div><button className="btn secondary" onClick={() => setState((current) => ({ ...current, authMode: 'signin' }))}>Sign in</button><button className="btn" onClick={() => setState((current) => ({ ...current, authMode: 'signup' }))}>Sign up</button></div></nav>
-        <div className="public-grid">
-          <div className="hero-copy"><small>Polygon-powered SME trade finance</small><h1>Verified trade, financeable invoices, and stablecoin settlement.</h1><p>Credara connects business onboarding, KYB, trade contracts, invoice proof, receivable financing, Smart LC escrow, settlement ledger and reconciliation in one enterprise workspace.</p><div className="hero-actions"><button className="btn" onClick={() => setState((current) => ({ ...current, authMode: 'signup' }))}>Create workspace</button><button className="btn secondary" onClick={() => setState((current) => ({ ...current, authMode: 'signin' }))}>Sign in to workspace</button></div></div>
-          <form className="auth-card" onSubmit={isSignup ? app.signUp : app.signIn}>
-            <div className="auth-tabs"><button type="button" className={isSignup ? 'active' : ''} onClick={() => setState((current) => ({ ...current, authMode: 'signup' }))}>Sign up</button><button type="button" className={!isSignup ? 'active' : ''} onClick={() => setState((current) => ({ ...current, authMode: 'signin' }))}>Sign in</button></div>
-            <h2>{isSignup ? 'Create workspace' : 'Sign in'}</h2>
-            {isSignup && <><label>Full name<input value={authForm.fullName} onChange={(e) => setAuthForm({ ...authForm, fullName: e.target.value })} /></label><label>Business name<input value={authForm.businessName} onChange={(e) => setAuthForm({ ...authForm, businessName: e.target.value })} /></label><label>Role<select value={authForm.role} onChange={(e) => setAuthForm({ ...authForm, role: e.target.value as Role })}>{Object.keys(personas).map((role) => <option key={role} value={role}>{titleCase(role)}</option>)}</select></label></>}
-            <label>Email<input value={authForm.email} onChange={(e) => setAuthForm({ ...authForm, email: e.target.value })} /></label>
-            <label>Password<input type="password" value={authForm.password} onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })} /></label>
-            <button className="btn" type="submit">{isSignup ? 'Create live workspace' : 'Sign in'}</button>
-          </form>
+function AuthOverlay({ app }: { app: ReturnType<typeof useCredaraApp> }) {
+  const { state, authForm, setAuthForm } = app;
+  const isSignup = state.authMode === 'signup';
+  return (
+    <div className="auth-overlay" role="dialog" aria-modal="true">
+      <form className="auth-card" onSubmit={isSignup ? app.signUp : app.signIn}>
+        <div className="auth-tabs">
+          <button type="button" className={isSignup ? 'active' : ''} onClick={() => app.setState((c) => ({ ...c, authMode: 'signup' }))}>Sign up</button>
+          <button type="button" className={!isSignup ? 'active' : ''} onClick={() => app.setState((c) => ({ ...c, authMode: 'signin' }))}>Sign in</button>
+          <button type="button" className="btn ghost small" onClick={() => app.setShowAuth(false)} aria-label="Close">×</button>
         </div>
-      </section>
-    );
-  }
+        <h2>{isSignup ? 'Create workspace' : 'Sign in'}</h2>
+        {isSignup && (
+          <>
+            <label>Full name<input value={authForm.fullName} onChange={(e) => setAuthForm({ ...authForm, fullName: e.target.value })} /></label>
+            <label>Business name<input value={authForm.businessName} onChange={(e) => setAuthForm({ ...authForm, businessName: e.target.value })} /></label>
+            <label>Role<select value={authForm.role} onChange={(e) => setAuthForm({ ...authForm, role: e.target.value as Role })}>{Object.keys(personas).map((role) => <option key={role} value={role}>{titleCase(role)}</option>)}</select></label>
+          </>
+        )}
+        <label>Email<input type="email" value={authForm.email} onChange={(e) => setAuthForm({ ...authForm, email: e.target.value })} /></label>
+        <label>Password<input type="password" value={authForm.password} onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })} /></label>
+        <button className="btn" type="submit">{isSignup ? 'Create live workspace' : 'Sign in'}</button>
+      </form>
+    </div>
+  );
 }
 
 function LiveBar({ state, onConnect }: { state: AppState; onConnect: () => void }) {
@@ -645,7 +743,16 @@ function PageRenderer({ page, state, app, metrics, switchPage }: { page: PageKey
   if (page === 'settlement') return <Settlement state={state} app={app} />;
   if (page === 'settings') return <Settings state={state} app={app} />;
   if (page === 'apiExplorer') return <ApiExplorer state={state} app={app} />;
-  if (page === 'contractDetail' || page === 'invoiceDetail') return <RecordDetail page={page} switchPage={switchPage} />;
+  if (page === 'contractDetail') {
+    return (
+      <TradeWorkflowPanel
+        businessId={state.businessId}
+        businessName={state.settings.workspace.name as string}
+        onNotify={app.notify}
+      />
+    );
+  }
+  if (page === 'invoiceDetail') return <RecordDetail page={page} state={state} switchPage={switchPage} />;
   if (['onboarding', 'businessProfile', 'invitations', 'members'].includes(page)) return <SetupPage page={page} state={state} switchPage={switchPage} />;
   if (['proof', 'evidence', 'credit', 'kyb'].includes(page)) return <TrustPage page={page} state={state} />;
   if (['directory', 'opportunities', 'proposals', 'marketplace', 'dealRoom'].includes(page)) return <NetworkPage page={page} state={state} />;
@@ -654,11 +761,46 @@ function PageRenderer({ page, state, app, metrics, switchPage }: { page: PageKey
 }
 
 function Dashboard({ state, metrics, switchPage }: { state: AppState; metrics: ReturnType<typeof getMetrics>; switchPage: (page: PageKey) => void }) {
-  return <div className="page-stack"><Banner /><section className="metric-grid"><Metric label="Verified invoices" value={metrics.verifiedCount} helper={fmt(metrics.verifiedValue)} /><Metric label="Receivables" value={metrics.recCount} helper={fmt(metrics.recVal)} /><Metric label="Active escrow" value={metrics.activeCount} helper={fmt(metrics.activeVal)} /><Metric label="Trust score" value={`${metrics.trust}/100`} helper="finance readiness" /></section><section className="two-grid"><Panel title="Priority queue" action={<button className="btn secondary small" onClick={() => switchPage('contractDetail')}>Contract</button>}><ActionRows rows={[['Review contract', 'TC-2026-0012', 'contractDetail'], ['Confirm invoice', 'INV-2025-045', 'invoiceDetail'], ['Sync ledger', `${state.ledger.length} rows`, 'settlementLedger']]} switchPage={switchPage} /></Panel><Panel title="Settlement snapshot"><Detail label="Escrow" value={state.escrows[0]?.smartLcId || 'No escrow'} /><Detail label="Status" value={state.escrows[0]?.status || 'Pending'} /><Detail label="Funded" value={fmt(state.escrows[0]?.fundedAmount || 0)} /><button className="btn secondary full" onClick={() => switchPage('settlement')}>Open settlement</button></Panel></section></div>;
+  const queue: Array<[string, string, PageKey]> = [
+    ['Create trade order', state.businessId ? 'Ready' : 'Complete onboarding', 'contractDetail'],
+    ['Settlement ledger', `${state.ledger.length} rows`, 'settlementLedger'],
+    ['Smart LC escrow', state.escrows[0]?.smartLcId || 'None yet', 'settlement'],
+  ];
+  return (
+    <div className="page-stack">
+      <Banner />
+      <section className="metric-grid">
+        <Metric label="Ledger entries" value={metrics.ledgerCount} helper={fmt(metrics.ledgerValue)} />
+        <Metric label="Payment intents" value={metrics.paymentCount} helper={fmt(metrics.paymentValue)} />
+        <Metric label="Active escrow" value={metrics.activeCount} helper={fmt(metrics.activeVal)} />
+        <Metric label="Trust score" value={`${metrics.trust}/100`} helper="finance readiness" />
+      </section>
+      <section className="two-grid">
+        <Panel title="Priority queue" action={<button className="btn secondary small" onClick={() => switchPage('contractDetail')}>Trade</button>}>
+          <ActionRows rows={queue} switchPage={switchPage} />
+        </Panel>
+        <Panel title="Settlement snapshot">
+          <Detail label="Escrow" value={state.escrows[0]?.smartLcId || 'No escrow'} />
+          <Detail label="Status" value={state.escrows[0]?.status || 'Pending'} />
+          <Detail label="Funded" value={fmt(state.escrows[0]?.fundedAmount || 0)} />
+          <button className="btn secondary full" onClick={() => switchPage('settlement')}>Open settlement</button>
+        </Panel>
+      </section>
+    </div>
+  );
 }
 
 function Wallets({ state, app }: { state: AppState; app: ReturnType<typeof useCredaraApp> }) {
   const wallet = state.wallets[0];
+  if (!wallet) {
+    return (
+      <div className="page-stack">
+        <PageIntro title="Wallets & payments" body="Connect a wallet or create one via settlement workflow." />
+        <p className="empty-state">No wallets yet. Create a payment intent to provision a workspace wallet.</p>
+        <button className="btn" onClick={app.createPaymentIntent}>Create payment intent</button>
+      </div>
+    );
+  }
   return <div className="page-stack"><PageIntro title="Wallets & payments" body="Stablecoin wallet payments with on-chain confirmation and internal reconciliation." /><section className="two-grid"><Panel title="Business wallet" status={wallet?.status}><Detail label="Owner" value={wallet?.owner} /><Detail label="Type" value={wallet?.type} /><Detail label="Network" value={wallet?.network} /><Detail label="Stablecoin balance" value={`${fmt(wallet?.stablecoinBalance || 0)} ${wallet?.asset || ''}`} /><code>{wallet?.address}</code><button className="btn full" onClick={app.fundEscrow}>Fund escrow</button></Panel><Panel title="Payment intent flow"><Stepper steps={[['Approve stablecoin', 'Ready'], ['Fund Smart LC escrow', state.escrows[0]?.status || 'Pending'], ['Wait for confirmations', `${state.paymentIntents[0]?.confirmations || 0}/${state.paymentIntents[0]?.requiredConfirmations || 3}`], ['Escrow marked funded', state.escrows[0]?.status || 'Pending']]} /></Panel></section><TablePanel title="Payment intents" action={<button className="btn secondary small" onClick={app.createPaymentIntent}>Create payment intent</button>} headers={['ID', 'Type', 'Payer', 'Payee', 'Amount', 'Status', 'Tx', 'Confirmations']} rows={state.paymentIntents.map((p) => [p.id, p.type, p.payer, p.payee, `${fmt(p.amount)} ${p.asset}`, p.status, p.tx, `${p.confirmations}/${p.requiredConfirmations}`])} /></div>;
 }
 
@@ -686,9 +828,36 @@ function ApiExplorer({ state, app }: { state: AppState; app: ReturnType<typeof u
   return <div className="page-stack"><PageIntro title="API Explorer" body="Gateway endpoints, workspace keys, webhooks and sample calls." /><section className="two-grid"><Panel title="Getting started"><Detail label="Base URL" value="/api/v1" /><Detail label="Live workflow API" value="/api/v1/real" /><Detail label="Authentication" value="JWT Bearer token" /><button className="btn" onClick={app.createApiKey}>Create API key</button></Panel><Panel title="Sample request"><pre>{sample}</pre></Panel></section><TablePanel title="Available endpoints" headers={['Method', 'Path', 'Use']} rows={[['POST', '/auth/register', 'Create user'], ['POST', '/real/onboarding/start', 'Create workspace'], ['POST', '/real/payment-intents', 'Create payment intent'], ['GET', '/real/ledger', 'Read settlement ledger'], ['POST', '/real/reconciliation/{type}/{id}', 'Run reconciliation']]} /></div>;
 }
 
-function RecordDetail({ page, switchPage }: { page: PageKey; switchPage: (page: PageKey) => void }) {
+function RecordDetail({ page, state, switchPage }: { page: PageKey; state: AppState; switchPage: (page: PageKey) => void }) {
   const isInvoice = page === 'invoiceDetail';
-  return <div className="page-stack"><section className="record-hero"><small>{isInvoice ? 'Invoice' : 'Trade Contract'}</small><h3>{isInvoice ? 'INV-2025-045 · Global Retail Ltd · £24,500' : 'TC-2026-0012 · Textile supply · £24,500'}</h3><p>{isInvoice ? 'Payment claim linked to buyer confirmation, delivery proof, finance readiness and settlement.' : 'Commercial terms, parties, delivery proof, financing and Smart LC settlement in one record.'}</p><div className="record-actions"><button className="btn" onClick={() => switchPage(isInvoice ? 'contractDetail' : 'invoiceDetail')}>{isInvoice ? 'Open linked contract' : 'Open linked invoice'}</button><button className="btn secondary" onClick={() => switchPage('evidence')}>Evidence bundle</button></div></section><section className="two-grid"><Panel title={isInvoice ? 'Invoice summary' : 'Contract summary'}><Detail label="Buyer" value="Global Retail Ltd" /><Detail label="Seller" value="Acme Textiles Ltd" /><Detail label="Amount" value={fmt(24500)} /><Detail label="Status" value={isInvoice ? 'Buyer Confirmed' : 'Active'} /></Panel><Panel title="Proof and settlement"><Detail label="Proof" value="Anchored" /><Detail label="Receivable" value="REC-045" /><Detail label="Smart LC" value="LC-015" /><Detail label="Network" value="Polygon Amoy" /></Panel></section></div>;
+  const escrow = state.escrows[0];
+  const payment = state.paymentIntents[0];
+  return (
+    <div className="page-stack">
+      <section className="record-hero">
+        <small>{isInvoice ? 'Invoice' : 'Trade Contract'}</small>
+        <h3>{isInvoice ? 'Invoice detail' : 'Contract detail'}</h3>
+        <p>{isInvoice ? 'Payment claim linked to buyer confirmation, delivery proof, finance readiness and settlement.' : 'Create orders and invoices from the Trade page; settlement flows through Smart LC escrow.'}</p>
+        <div className="record-actions">
+          <button className="btn" onClick={() => switchPage('contractDetail')}>Open trade workflow</button>
+          <button className="btn secondary" onClick={() => switchPage('evidence')}>Evidence bundle</button>
+        </div>
+      </section>
+      <section className="two-grid">
+        <Panel title={isInvoice ? 'Invoice summary' : 'Contract summary'}>
+          <Detail label="Workspace" value={state.settings.workspace.name as string} />
+          <Detail label="Payment intents" value={state.paymentIntents.length} />
+          <Detail label="Ledger rows" value={state.ledger.length} />
+          <Detail label="Status" value={payment?.status || escrow?.status || 'Pending'} />
+        </Panel>
+        <Panel title="Proof and settlement">
+          <Detail label="Escrow" value={escrow?.smartLcId || 'None'} />
+          <Detail label="Funded" value={fmt(escrow?.fundedAmount || 0)} />
+          <Detail label="Network" value="Polygon Amoy" />
+        </Panel>
+      </section>
+    </div>
+  );
 }
 
 function SetupPage({ page, state, switchPage }: { page: PageKey; state: AppState; switchPage: (page: PageKey) => void }) {
@@ -718,8 +887,16 @@ function OperationalPage({ page, state, switchPage }: { page: PageKey; state: Ap
 function getMetrics(state: AppState) {
   const confirmed = state.ledger.filter((r) => r.status === 'Confirmed');
   const activeEscrows = state.escrows.filter((e) => !['Released', 'Refunded'].includes(e.status));
-  const trust = Math.min(100, 62 + confirmed.length * 4 + state.escrows.filter((e) => e.status === 'Released').length * 5);
-  return { verifiedCount: 1, verifiedValue: 24500, recCount: 1, recVal: 24500, activeCount: activeEscrows.length, activeVal: activeEscrows.reduce((sum, e) => sum + e.fundedAmount, 0), trust };
+  const trust = Math.min(100, 40 + confirmed.length * 8 + state.escrows.filter((e) => e.status === 'Released').length * 10 + state.paymentIntents.filter((p) => p.status === 'Confirmed').length * 5);
+  return {
+    ledgerCount: state.ledger.length,
+    ledgerValue: state.ledger.reduce((s, r) => s + r.amount, 0),
+    paymentCount: state.paymentIntents.length,
+    paymentValue: state.paymentIntents.reduce((s, p) => s + p.amount, 0),
+    activeCount: activeEscrows.length,
+    activeVal: activeEscrows.reduce((sum, e) => sum + e.fundedAmount, 0),
+    trust,
+  };
 }
 
 function Banner() {

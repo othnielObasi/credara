@@ -1,9 +1,10 @@
 import time
 from datetime import datetime
+
 from app.core.database import SessionLocal
 from app.models.audit import BlockchainOutbox
 from app.models.enums import OutboxStatus
-from app.services.polygon import simulate_tx_hash
+from app.services.polygon import publish_tx
 
 
 def process_once() -> int:
@@ -12,10 +13,16 @@ def process_once() -> int:
         jobs = db.query(BlockchainOutbox).filter(BlockchainOutbox.status == OutboxStatus.PENDING.value).limit(10).all()
         for job in jobs:
             try:
-                # Production path: sign and send contract transaction via web3.py.
-                job.tx_hash = simulate_tx_hash(f"{job.id}:{job.action}:{job.payload_json}")
+                proof_hash = None
+                if isinstance(job.payload_json, dict):
+                    proof_hash = job.payload_json.get('proof_hash')
+                seed = f"{job.id}:{job.action}:{job.payload_json}"
+                tx_hash, on_chain = publish_tx(seed, proof_hash=proof_hash)
+                job.tx_hash = tx_hash
                 job.status = OutboxStatus.SENT.value
                 job.updated_at = datetime.utcnow()
+                if not on_chain:
+                    job.last_error = 'simulated_tx_fallback'
             except Exception as exc:  # noqa: BLE001
                 job.attempts += 1
                 job.last_error = str(exc)
@@ -24,6 +31,7 @@ def process_once() -> int:
         return len(jobs)
     finally:
         db.close()
+
 
 if __name__ == '__main__':
     while True:

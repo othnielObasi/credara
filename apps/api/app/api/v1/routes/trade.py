@@ -14,6 +14,36 @@ from app.services.proofs import build_delivery_hash, build_invoice_hash, create_
 
 router = APIRouter()
 
+@router.get('/orders', response_model=list[OrderRead])
+def list_orders(
+    seller_business_id: str | None = None,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles(Role.SME, Role.BUYER, Role.FINANCIER, Role.ADMIN)),
+):
+    q = db.query(Order)
+    if seller_business_id:
+        _require_owns_business(db, user, seller_business_id)
+        q = q.filter(Order.seller_business_id == seller_business_id)
+    elif user.role == Role.SME.value:
+        owned_ids = [b.id for b in db.query(Business).filter(Business.owner_user_id == user.id).all()]
+        q = q.filter(Order.seller_business_id.in_(owned_ids)) if owned_ids else q.filter(False)
+    return q.order_by(Order.created_at.desc()).limit(100).all()
+
+@router.get('/invoices', response_model=list[InvoiceRead])
+def list_invoices(
+    seller_business_id: str | None = None,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles(Role.SME, Role.BUYER, Role.FINANCIER, Role.ADMIN)),
+):
+    q = db.query(Invoice)
+    if seller_business_id:
+        _require_owns_business(db, user, seller_business_id)
+        q = q.filter(Invoice.seller_business_id == seller_business_id)
+    elif user.role == Role.SME.value:
+        owned_ids = [b.id for b in db.query(Business).filter(Business.owner_user_id == user.id).all()]
+        q = q.filter(Invoice.seller_business_id.in_(owned_ids)) if owned_ids else q.filter(False)
+    return q.order_by(Invoice.created_at.desc()).limit(100).all()
+
 def _require_owns_business(db: Session, user: User, business_id: str) -> None:
     # SMEs may only act on their own business; admins act on any.
     if user.role == Role.ADMIN.value:
