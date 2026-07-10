@@ -65,6 +65,15 @@ class DiditKYBProvider(KYBProvider):
             timeout=15.0,
         )
 
+    def _raise_for_didit_error(self, response: httpx.Response) -> None:
+        if response.is_success:
+            return
+        try:
+            detail = response.json().get('detail', response.text)
+        except ValueError:
+            detail = response.text
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, f'Didit API error ({response.status_code}): {detail}')
+
     async def create_applicant(self, business_payload: dict[str, Any]) -> dict[str, Any]:
         body = {
             'workflow_id': self._workflow_id,
@@ -77,7 +86,7 @@ class DiditKYBProvider(KYBProvider):
         }
         async with self._client() as client:
             response = await client.post('/v3/session/', json=body)
-        response.raise_for_status()
+        self._raise_for_didit_error(response)
         data = response.json()
         return {'provider_name': self.name, 'applicant_id': data['session_id'], 'raw': data}
 
@@ -89,14 +98,14 @@ class DiditKYBProvider(KYBProvider):
         # the moment the session is created. Return the session's current status.
         async with self._client() as client:
             response = await client.get(f'/v3/session/{applicant_id}/decision/')
-        response.raise_for_status()
+        self._raise_for_didit_error(response)
         data = response.json()
         return {'check_id': applicant_id, 'status': data.get('status'), 'raw': data}
 
     async def get_check_status(self, check_id: str) -> dict[str, Any]:
         async with self._client() as client:
             response = await client.get(f'/v3/session/{check_id}/decision/')
-        response.raise_for_status()
+        self._raise_for_didit_error(response)
         data = response.json()
         return {
             'check_id': check_id,

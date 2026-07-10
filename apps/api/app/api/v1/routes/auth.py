@@ -1,12 +1,23 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+import secrets
+from urllib.parse import urlencode
+
+import httpx
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi.responses import RedirectResponse
 from fastapi.security import OAuth2PasswordRequestForm
+from jose import JWTError, jwt
 from sqlalchemy.orm import Session
+
+from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.security import create_access_token, hash_password, verify_password
 from app.models.identity import User
 from app.schemas.auth import RegisterRequest, TokenResponse
 
 router = APIRouter()
+
+OAUTH_STATE_COOKIE = 'credara_oauth_state'
+
 
 @router.post('/register', response_model=TokenResponse)
 def register(payload: RegisterRequest, db: Session = Depends(get_db)):
@@ -24,3 +35,91 @@ def login(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get
     if not user or not verify_password(form.password, user.password_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Invalid credentials')
     return TokenResponse(access_token=create_access_token(user.id, user.role), role=user.role)
+
+
+@router.get('/oauth/login')
+def oauth_login():
+    """Starts the Auth0 Authorization Code flow (Regular Web App). The state
+    value is stored in a short-lived HttpOnly cookie rather than any server
+    session store, and validated against the callback's own state param -
+    standard CSRF protection for this flow without needing shared session state.
+    """
+    settings = get_settings()
+    if not settings.auth0_domain or not settings.auth0_client_id:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, 'OAuth is not configured')
+    state = secrets.token_urlsafe(24)
+    params = {
+        'response_type': 'code',
+        'client_id': settings.auth0_client_id,
+        'redirect_uri': settings.auth0_callback_url,
+        'scope': 'openid profile email',
+        'state': state,
+    }
+    redirect = RedirectResponse(f'https://{settings.auth0_domain}/authorize?{urlencode(params)}')
+    redirect.set_cookie(OAUTH_STATE_COOKIE, state, max_age=600, httponly=True, secure=True, samesite='lax')
+    return redirect
+
+
+@router.get('/oauth/callback')
+async def oauth_callback(
+    request: Request,
+    code: str | None = None,
+    state: str | None = None,
+    error: str | None = None,
+    error_description: str | None = None,
+    db: Session = Depends(get_db),
+):
+    settings = get_settings()
+    if error:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, f'Auth0 error: {error} - {error_description or ""}')
+    if not code or not state:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, 'Missing code or state from Auth0 callback')
+    cookie_state = request.cookies.get(OAUTH_STATE_COOKIE)
+    if not cookie_state or cookie_state != state:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, 'Invalid or expired OAuth state')
+
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        token_resp = await client.post(f'https://{settings.auth0_domain}/oauth/token', json={
+            'grant_type': 'authorization_code',
+            'client_id': settings.auth0_client_id,
+            'client_secret': settings.auth0_client_secret,
+            'code': code,
+            'redirect_uri': settings.auth0_callback_url,
+        })
+        if token_resp.status_code != 200:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, f'Auth0 token exchange failed: {token_resp.text}')
+        tokens = token_resp.json()
+        id_token = tokens.get('id_token')
+        if not id_token:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, 'Auth0 did not return an id_token')
+
+        jwks_resp = await client.get(f'https://{settings.auth0_domain}/.well-known/jwks.json')
+        jwks = jwks_resp.json()
+
+    try:
+        claims = jwt.decode(
+            id_token, jwks, algorithms=['RS256'],
+            audience=settings.auth0_client_id,
+            issuer=f'https://{settings.auth0_domain}/',
+        )
+    except JWTError as exc:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, f'Invalid Auth0 id_token: {exc}') from exc
+
+    email = claims.get('email')
+    if not email:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, 'Auth0 identity has no email claim')
+    full_name = claims.get('name') or email
+
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        # OAuth-created accounts get an unusable random password hash - there's
+        # no password to verify against, sign-in only ever happens via Auth0.
+        user = User(email=email, full_name=full_name, role='sme', password_hash=hash_password(secrets.token_urlsafe(32)))
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+    access_token = create_access_token(user.id, user.role)
+    redirect = RedirectResponse(f'{settings.auth0_frontend_redirect}#token={access_token}&role={user.role}')
+    redirect.delete_cookie(OAUTH_STATE_COOKIE)
+    return redirect

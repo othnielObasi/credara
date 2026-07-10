@@ -4,7 +4,7 @@ import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
 import LandingPage from './landing/landing-page';
 import { TradeWorkflowPanel, DeliveryProofPanel, ReceivablesPanel, ProofLedgerPage } from './workspace/trade-workflow-panel';
 import { SettingsPanel, InvitationsPanel, BuyerInboxPanel, MarketplacePanel, DealRoomPanel } from './workspace/workspace-panels';
-import { clearAuthSession, loginUser, realApi, registerUser, setAuthSession } from '../lib/api';
+import { API_BASE, clearAuthSession, loginUser, realApi, registerUser, setAuthSession } from '../lib/api';
 import { fmt, statusTone, titleCase } from '../lib/format';
 
 type Role = 'sme' | 'buyer' | 'financier' | 'admin' | 'developer';
@@ -234,11 +234,11 @@ function Pill({ children, tone }: { children: string; tone?: string }) {
   return <span className={`pill ${tone || statusTone(children)}`}>{children}</span>;
 }
 
-function useCredaraApp(startInWorkspace: boolean) {
-  const [state, setState] = useState<AppState>({ ...initialState, page: startInWorkspace ? 'dashboard' : 'dashboard' });
+function useCredaraApp(startInWorkspace: boolean, initialAuthMode: 'signin' | 'signup' = 'signup') {
+  const [state, setState] = useState<AppState>({ ...initialState, page: startInWorkspace ? 'dashboard' : 'dashboard', authMode: initialAuthMode });
   const [toast, setToast] = useState<{ title: string; message?: string } | null>(null);
   const [authForm, setAuthForm] = useState(emptyAuthForm);
-  const [showAuth, setShowAuth] = useState(false);
+  const [showAuth, setShowAuth] = useState(initialAuthMode === 'signin');
   const [hasMounted, setHasMounted] = useState(false);
 
   const notify = (title: string, message?: string) => {
@@ -668,8 +668,8 @@ function mapLedger(r: Record<string, unknown>): LedgerRow {
   return { time: new Date(String(r.timestamp)).toLocaleString(), track: String(r.track || 'Settlement'), event: String(r.event || 'event'), source: String(r.source || 'Credara'), description: String(r.description || ''), amount: Number(r.amount || 0), status: titleCase(String(r.status || 'pending')), verifier: String(r.verifier || '-'), docs: Array.isArray(r.docs) ? (r.docs as string[]) : [], role: String(r.role || 'system'), reference: String(r.reference_id || '') };
 }
 
-export default function CredaraLiveApp({ startInWorkspace = false }: { startInWorkspace?: boolean }) {
-  const app = useCredaraApp(startInWorkspace);
+export default function CredaraLiveApp({ startInWorkspace = false, initialAuthMode = 'signup' }: { startInWorkspace?: boolean; initialAuthMode?: 'signin' | 'signup' }) {
+  const app = useCredaraApp(startInWorkspace, initialAuthMode);
   const { state, setState, authForm, setAuthForm } = app;
   const workspaceName = (state.settings.workspace.name as string) || personas[state.role][0];
   const workspaceLabel = (state.settings.workspace.role as string) || personas[state.role][3];
@@ -756,6 +756,8 @@ function AuthOverlay({ app }: { app: ReturnType<typeof useCredaraApp> }) {
         <label>Email<input type="email" value={authForm.email} onChange={(e) => setAuthForm({ ...authForm, email: e.target.value })} /></label>
         <label>Password<input type="password" value={authForm.password} onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })} /></label>
         <button className="btn" type="submit">{isSignup ? 'Create live workspace' : 'Sign in'}</button>
+        <div className="auth-divider"><span>or</span></div>
+        <button type="button" className="btn secondary full" onClick={() => { window.location.href = `${API_BASE}/auth/oauth/login`; }}>Continue with Auth0</button>
       </form>
     </div>
   );

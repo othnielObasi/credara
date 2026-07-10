@@ -36,12 +36,14 @@ contract SmartLC is AccessControl, Pausable, ReentrancyGuard {
     uint256 public immutable fundingDeadline;
     uint256 public immutable deliveryDeadline;
     uint256 public immutable confirmationWindowSeconds;
+    uint256 public immutable disputeResolutionWindowSeconds;
 
     Status public status;
     bytes32 public deliveryProofHash;
     bytes32 public disputeReasonHash;
     uint256 public deliverySubmittedAt;
     uint256 public deliveryVerifiedAt;
+    uint256 public disputeRaisedAt;
 
     event LCFunded(bytes32 indexed orderProofHash, address indexed buyer, uint256 amount);
     event DeliverySubmitted(bytes32 indexed orderProofHash, address indexed seller, bytes32 deliveryProofHash);
@@ -61,9 +63,13 @@ contract SmartLC is AccessControl, Pausable, ReentrancyGuard {
     error FundingExpired();
     error DeliveryExpired();
     error ConfirmationWindowOpen();
+    error DisputeWindowOpen();
 
     constructor(
         address admin,
+        address verifier,
+        address disputeResolver,
+        address pauser,
         IERC20 token,
         address buyer_,
         address seller_,
@@ -71,13 +77,17 @@ contract SmartLC is AccessControl, Pausable, ReentrancyGuard {
         bytes32 orderProofHash_,
         uint256 fundingDeadline_,
         uint256 deliveryDeadline_,
-        uint256 confirmationWindowSeconds_
+        uint256 confirmationWindowSeconds_,
+        uint256 disputeResolutionWindowSeconds_
     ) {
-        if (admin == address(0) || address(token) == address(0) || buyer_ == address(0) || seller_ == address(0)) revert InvalidAddress();
+        if (
+            admin == address(0) || verifier == address(0) || disputeResolver == address(0) || pauser == address(0)
+                || address(token) == address(0) || buyer_ == address(0) || seller_ == address(0)
+        ) revert InvalidAddress();
         if (amount_ == 0) revert InvalidAmount();
         if (orderProofHash_ == bytes32(0)) revert InvalidProofHash();
         if (fundingDeadline_ <= block.timestamp || deliveryDeadline_ <= fundingDeadline_) revert InvalidDeadline();
-        if (confirmationWindowSeconds_ == 0) revert InvalidDeadline();
+        if (confirmationWindowSeconds_ == 0 || disputeResolutionWindowSeconds_ == 0) revert InvalidDeadline();
 
         settlementToken = token;
         buyer = buyer_;
@@ -87,12 +97,16 @@ contract SmartLC is AccessControl, Pausable, ReentrancyGuard {
         fundingDeadline = fundingDeadline_;
         deliveryDeadline = deliveryDeadline_;
         confirmationWindowSeconds = confirmationWindowSeconds_;
+        disputeResolutionWindowSeconds = disputeResolutionWindowSeconds_;
         status = Status.Created;
 
+        // Roles are granted individually rather than collapsing onto one admin
+        // address, so a single compromised/lost key doesn't control verification,
+        // dispute resolution, and pausing across every LC at once.
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
-        _grantRole(VERIFIER_ROLE, admin);
-        _grantRole(DISPUTE_RESOLVER_ROLE, admin);
-        _grantRole(PAUSER_ROLE, admin);
+        _grantRole(VERIFIER_ROLE, verifier);
+        _grantRole(DISPUTE_RESOLVER_ROLE, disputeResolver);
+        _grantRole(PAUSER_ROLE, pauser);
     }
 
     function fund() external nonReentrant whenNotPaused {
@@ -149,6 +163,7 @@ contract SmartLC is AccessControl, Pausable, ReentrancyGuard {
         if (reasonHash == bytes32(0)) revert InvalidProofHash();
 
         disputeReasonHash = reasonHash;
+        disputeRaisedAt = block.timestamp;
         status = Status.Disputed;
         emit LCDisputed(orderProofHash, msg.sender, reasonHash);
     }
@@ -160,6 +175,16 @@ contract SmartLC is AccessControl, Pausable, ReentrancyGuard {
 
     function resolveDisputeRefund() external onlyRole(DISPUTE_RESOLVER_ROLE) nonReentrant whenNotPaused {
         if (status != Status.Disputed) revert InvalidState(status);
+        _refund();
+    }
+
+    /// @notice Permissionless fallback so funds can't be locked forever behind an
+    /// unresponsive or lost dispute-resolver key. Refunds the buyer by default,
+    /// since that only returns their own escrowed capital rather than forcing a
+    /// payout to the seller unilaterally.
+    function resolveDisputeTimeout() external nonReentrant whenNotPaused {
+        if (status != Status.Disputed) revert InvalidState(status);
+        if (block.timestamp < disputeRaisedAt + disputeResolutionWindowSeconds) revert DisputeWindowOpen();
         _refund();
     }
 

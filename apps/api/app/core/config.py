@@ -36,6 +36,13 @@ class Settings(BaseSettings):
     didit_workflow_id: str | None = None
     didit_webhook_secret: str | None = None
 
+    # Auth0 OAuth (Regular Web App) - server-brokered authorization code flow.
+    auth0_domain: str | None = None
+    auth0_client_id: str | None = None
+    auth0_client_secret: str | None = None
+    auth0_callback_url: str = 'https://credara.nov-tia.com/api/v1/auth/oauth/callback'
+    auth0_frontend_redirect: str = 'https://credara.nov-tia.com/auth/callback'
+
     @field_validator('cors_origins', mode='before')
     @classmethod
     def parse_cors(cls, value):

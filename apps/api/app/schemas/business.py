@@ -8,6 +8,9 @@ class BusinessCreate(BaseModel):
     industry: str | None = None
     wallet_address: str | None = None
 
+class BusinessWalletUpdate(BaseModel):
+    wallet_address: str = Field(min_length=42, max_length=42)
+
 class BusinessRead(ORMModel):
     id: str
     legal_name: str

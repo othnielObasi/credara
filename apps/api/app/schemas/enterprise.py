@@ -268,6 +268,10 @@ class SmartLCActionRequest(BaseModel):
     metadata_json: dict = {}
 
 
+class SmartLCFundConfirmRequest(BaseModel):
+    tx_hash: str = Field(min_length=66, max_length=66)
+
+
 
 class BusinessDirectoryProfileUpsert(BaseModel):
     display_name: str

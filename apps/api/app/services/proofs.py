@@ -60,5 +60,5 @@ def create_proof_bundle(db: Session, business_id: str, bundle_type: str, payload
         status=ProofStatus.VERIFIED.value,
     )
     db.add(bundle)
-    db.add(BlockchainOutbox(action='ANCHOR_PROOF', payload_json={'proof_hash': proof_hash, 'bundle_type': bundle_type, 'bundle_id': bundle.id}))
+    db.add(BlockchainOutbox(action='ANCHOR_PROOF', payload_json={'proof_hash': proof_hash, 'bundle_type': bundle_type, 'bundle_id': bundle.id, 'business_id': business_id}))
     return bundle

@@ -28,6 +28,9 @@ contract SmartLCFactory is AccessControl, Pausable {
     }
 
     function createSmartLC(
+        address verifier,
+        address disputeResolver,
+        address pauser,
         IERC20 token,
         address buyer,
         address seller,
@@ -35,10 +38,14 @@ contract SmartLCFactory is AccessControl, Pausable {
         bytes32 orderProofHash,
         uint256 fundingDeadline,
         uint256 deliveryDeadline,
-        uint256 confirmationWindowSeconds
+        uint256 confirmationWindowSeconds,
+        uint256 disputeResolutionWindowSeconds
     ) external onlyRole(CREATOR_ROLE) whenNotPaused returns (address) {
         SmartLC lc = new SmartLC(
             msg.sender,
+            verifier,
+            disputeResolver,
+            pauser,
             token,
             buyer,
             seller,
@@ -46,7 +53,8 @@ contract SmartLCFactory is AccessControl, Pausable {
             orderProofHash,
             fundingDeadline,
             deliveryDeadline,
-            confirmationWindowSeconds
+            confirmationWindowSeconds,
+            disputeResolutionWindowSeconds
         );
         emit SmartLCCreated(address(lc), buyer, seller, amount, orderProofHash, fundingDeadline, deliveryDeadline);
         return address(lc);
