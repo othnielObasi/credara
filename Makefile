@@ -11,6 +11,9 @@ dev:
 dev-local:
 	bash scripts/dev-local.sh
 
+deploy-production:
+	bash scripts/deploy-production.sh
+
 test:
 	cd apps/api && pytest -q
 	cd contracts && npm test

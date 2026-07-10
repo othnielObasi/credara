@@ -71,13 +71,18 @@ services:
     build:
       context: ..
       dockerfile: apps/web/Dockerfile
+      args:
+        API_PROXY_TARGET: http://api:8000
     restart: unless-stopped
     env_file:
       - ../.env
+    environment:
+      API_PROXY_TARGET: http://api:8000
     ports:
       - "127.0.0.1:3000:3000"
     depends_on:
-      - api
+      api:
+        condition: service_healthy
 
   caddy:
     image: caddy:2-alpine

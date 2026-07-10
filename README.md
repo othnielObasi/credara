@@ -35,6 +35,18 @@ bash scripts/dev-local.sh web   # terminal 2
 
 Or with Docker: `make dev`
 
+### Production deploy
+
+On the server (`credara.nov-tia.com`):
+
+```bash
+git pull origin main
+cp .env.example .env   # first time only — set real secrets
+make deploy-production
+```
+
+Public URL: https://credara.nov-tia.com/
+
 API docs: http://localhost:8000/docs  
 Web app: http://localhost:3000
 
