@@ -239,6 +239,7 @@ function useCredaraApp(startInWorkspace: boolean) {
   const [toast, setToast] = useState<{ title: string; message?: string } | null>(null);
   const [authForm, setAuthForm] = useState(emptyAuthForm);
   const [showAuth, setShowAuth] = useState(false);
+  const [hasMounted, setHasMounted] = useState(false);
 
   const notify = (title: string, message?: string) => {
     setToast({ title, message });
@@ -608,8 +609,9 @@ function useCredaraApp(startInWorkspace: boolean) {
   }
 
   useEffect(() => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('credara.authToken') : null;
-    const role = (typeof window !== 'undefined' ? localStorage.getItem('credara.role') : null) as Role | null;
+    setHasMounted(true);
+    const token = localStorage.getItem('credara.authToken');
+    const role = localStorage.getItem('credara.role') as Role | null;
     if (!token) return;
     setState((current) => ({ ...current, token, role: role || current.role, jwtRole: role || current.jwtRole }));
     void (async () => {
@@ -646,6 +648,7 @@ function useCredaraApp(startInWorkspace: boolean) {
     loadNavigation,
     refreshInvitations,
     loadOperationalState,
+    hasMounted,
   };
 }
 
@@ -676,11 +679,12 @@ export default function CredaraLiveApp({ startInWorkspace = false }: { startInWo
 
   const switchPage = (page: PageKey) => setState((current) => ({ ...current, page: allowed.includes(page) ? page : allowed[0] }));
   const metrics = useMemo(() => getMetrics(state), [state]);
+  const showLanding = !app.hasMounted || !state.token;
 
   return (
     <main className="credara-app">
       {toastView(app.toast)}
-      {!state.token ? (
+      {showLanding ? (
         <>
           <LandingPage
             onSignIn={() => { setState((c) => ({ ...c, authMode: 'signin' })); app.setShowAuth(true); }}
