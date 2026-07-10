@@ -1,16 +1,18 @@
 FROM node:22-alpine AS deps
 WORKDIR /app
-COPY apps/web/package.json apps/web/pnpm-lock.yaml ./
-RUN corepack enable && pnpm install --frozen-lockfile --dangerously-allow-all-builds
+COPY apps/web/package.json ./
+RUN npm install
 
 FROM node:22-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY apps/web .
+RUN mkdir -p public
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV CI=true
 ARG API_PROXY_TARGET=http://api:8000
 ENV API_PROXY_TARGET=$API_PROXY_TARGET
-RUN corepack enable && pnpm build
+RUN npm run build
 
 FROM node:22-alpine AS runner
 WORKDIR /app

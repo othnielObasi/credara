@@ -1,0 +1,6 @@
+apps/web/node_modules
+apps/web/.next
+apps/api/__pycache__
+**/.venv
+**/node_modules
+.git

@@ -1,3 +1,7 @@
+from contextlib import asynccontextmanager
+import asyncio
+import logging
+
 from app.api.v1.routers import real_workflow
 from app.api.v1.routers import settings_and_access
 from app.api.v1.routers import onboarding
@@ -12,17 +16,24 @@ from app.core.database import Base, engine
 from app import models  # noqa: F401
 
 settings = get_settings()
-try:
-    Base.metadata.create_all(bind=engine)
-except Exception as exc:
-    import logging
-    logging.getLogger('credara').error(
-        'Database init failed (%s). For local dev without Docker, run: bash scripts/dev-local.sh api',
-        exc,
-    )
-    raise
+logger = logging.getLogger('credara')
 
-app = FastAPI(title=settings.project_name, version='0.1.0', docs_url='/docs')
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    for attempt in range(30):
+        try:
+            Base.metadata.create_all(bind=engine)
+            break
+        except Exception as exc:
+            if attempt >= 29:
+                logger.error('Database init failed after retries: %s', exc)
+            else:
+                await asyncio.sleep(2)
+    yield
+
+
+app = FastAPI(title=settings.project_name, version='0.1.0', docs_url='/docs', lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
