@@ -1,12 +1,24 @@
 SHELL := /bin/bash
 
-.PHONY: dev dev-local test lint zip setup-env
+.PHONY: dev dev-local deploy-production docker-setup test lint zip setup-env
 
 setup-env:
 	bash scripts/setup-env.sh
 
+docker-setup:
+	sudo apt-get update -qq
+	sudo apt-get install -y docker.io docker-compose-v2
+	sudo mkdir -p /etc/docker
+	@echo '{"storage-driver":"vfs"}' | sudo tee /etc/docker/daemon.json
+	sudo usermod -aG docker "$$USER" 2>/dev/null || true
+	sudo pkill dockerd 2>/dev/null || true
+	sleep 2
+	sudo nohup dockerd >/tmp/dockerd.log 2>&1 &
+	sleep 3
+	bash scripts/ensure-docker.sh
+
 dev:
-	docker compose -f infra/docker-compose.yml up --build
+	bash scripts/docker-dev.sh
 
 dev-local:
 	bash scripts/dev-local.sh
