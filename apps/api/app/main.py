@@ -12,7 +12,15 @@ from app.core.database import Base, engine
 from app import models  # noqa: F401
 
 settings = get_settings()
-Base.metadata.create_all(bind=engine)
+try:
+    Base.metadata.create_all(bind=engine)
+except Exception as exc:
+    import logging
+    logging.getLogger('credara').error(
+        'Database init failed (%s). For local dev without Docker, run: bash scripts/dev-local.sh api',
+        exc,
+    )
+    raise
 
 app = FastAPI(title=settings.project_name, version='0.1.0', docs_url='/docs')
 app.add_middleware(

@@ -28,9 +28,12 @@ infra                Docker Compose, deployment and local infra
 ## Quick start
 
 ```bash
-cp .env.example .env
-make dev
+cp .env.example .env   # or: make setup-env
+bash scripts/dev-local.sh api   # terminal 1
+bash scripts/dev-local.sh web   # terminal 2
 ```
+
+Or with Docker: `make dev`
 
 API docs: http://localhost:8000/docs  
 Web app: http://localhost:3000

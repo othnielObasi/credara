@@ -118,13 +118,14 @@ export function InvitationsPanel({
   const [loading, setLoading] = useState(false);
 
   async function sendInvite() {
-    if (!workspaceId || !toEmail.trim()) return onNotify('Missing fields', 'Recipient email required.');
+    const recipient = toEmail.trim();
+    if (!workspaceId || !recipient) return onNotify('Missing fields', 'Recipient email required.');
     setLoading(true);
     try {
       await realApi.createInvitation({
         from_workspace_id: workspaceId,
         from_business_name: businessName || 'Workspace',
-        to_email: toEmail.trim(),
+        to_email: recipient,
         invite_type: inviteType,
         invited_role: role,
         target_type: 'workflow',
@@ -134,7 +135,7 @@ export function InvitationsPanel({
       });
       setToEmail('');
       await onRefresh();
-      onNotify('Invitation sent', `Invite queued for ${toEmail.trim()}`);
+      onNotify('Invitation sent', `Invite queued for ${recipient}`);
     } catch (e) {
       onNotify('Failed', e instanceof Error ? e.message.slice(0, 120) : 'Error');
     } finally {

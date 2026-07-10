@@ -1,5 +1,6 @@
-export function fmt(value: number | string | undefined, currency = '£') {
-  return `${currency}${Number(value || 0).toLocaleString('en-GB')}`;
+export function fmt(value: number | string | undefined, currency = 'USDC ') {
+  const amount = Number(value || 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+  return currency ? `${currency}${amount}` : amount;
 }
 
 export function titleCase(value: string | undefined) {

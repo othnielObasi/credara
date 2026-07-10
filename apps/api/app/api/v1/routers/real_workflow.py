@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
-from sqlalchemy import select, func
+from sqlalchemy import or_, select, func
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -432,14 +432,27 @@ def list_invitations(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    # Non-admins can only ever see invitations addressed to their own email -
-    # the to_email query param is ignored for them rather than trusted.
-    effective_email = to_email if user.role == Role.ADMIN.value else user.email
     stmt = select(InvitationRecord).order_by(InvitationRecord.created_at.desc())
     if status:
         stmt = stmt.where(InvitationRecord.status == status)
-    if effective_email:
-        stmt = stmt.where(InvitationRecord.to_email == effective_email)
+
+    if user.role == Role.ADMIN.value:
+        if to_email:
+            stmt = stmt.where(InvitationRecord.to_email == to_email)
+    else:
+        workspace_ids = list(
+            db.scalars(
+                select(Membership.workspace_id).where(
+                    Membership.user_id == user.id,
+                    Membership.status == "active",
+                )
+            ).all()
+        )
+        filters = [InvitationRecord.to_email == user.email]
+        if workspace_ids:
+            filters.append(InvitationRecord.from_workspace_id.in_(workspace_ids))
+        stmt = stmt.where(or_(*filters))
+
     rows = db.scalars(stmt).all()
     return [
         {
@@ -1026,8 +1039,13 @@ def reconcile(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    # Back-office financial operation - restrict to admin/financier roles.
-    if user.role not in {Role.ADMIN.value, Role.FINANCIER.value}:
+    # Workspace members can reconcile their own settlement references.
+    if user.role not in {
+        Role.ADMIN.value,
+        Role.FINANCIER.value,
+        Role.SME.value,
+        Role.BUYER.value,
+    }:
         raise HTTPException(403, "Insufficient permissions")
     ledger_rows = db.scalars(select(SettlementLedgerRecord).where(SettlementLedgerRecord.reference_id == reference_id)).all()
     confirmed_rows = [r for r in ledger_rows if r.status == "confirmed"]

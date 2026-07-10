@@ -13,19 +13,34 @@ fi
 mkdir -p apps/api
 ln -sf ../../.env apps/api/.env
 
-if [[ -z "${DATABASE_URL:-}" ]] || [[ "${DATABASE_URL}" == postgresql* ]]; then
-  export DATABASE_URL="sqlite:///${ROOT}/apps/api/credara.db"
-fi
+set -a
+# shellcheck disable=SC1091
+source .env
+set +a
 
 API_PORT="${API_PORT:-8000}"
 WEB_PORT="${WEB_PORT:-3000}"
 
+use_sqlite() {
+  export DATABASE_URL="sqlite:///${ROOT}/apps/api/credara.db"
+  echo "Using SQLite: $DATABASE_URL"
+}
+
+if [[ "${CREDARA_USE_SQLITE:-}" == "1" ]]; then
+  use_sqlite
+elif [[ "${DATABASE_URL:-}" == postgresql* ]]; then
+  if ! command -v pg_isready >/dev/null 2>&1 || ! pg_isready -h localhost -p 5432 >/dev/null 2>&1; then
+    echo "Postgres not reachable — falling back to SQLite for local dev."
+    use_sqlite
+  fi
+elif [[ -z "${DATABASE_URL:-}" ]]; then
+  use_sqlite
+fi
+
 echo ""
 echo "Credara — SME trade finance on Polygon"
 echo "  Open:  http://localhost:${WEB_PORT}/"
-echo "  API:   http://localhost:${API_PORT}/docs"
-echo ""
-echo "This is the Credara React app. The old HTML demo is archived (not used)."
+echo "  API:   http://localhost:${API_PORT}/health"
 echo ""
 
 run_api() {
@@ -40,6 +55,7 @@ run_api() {
 
 run_web() {
   cd "$ROOT/apps/web"
+  export API_PROXY_TARGET="${API_PROXY_TARGET:-http://localhost:${API_PORT}}"
   if command -v pnpm >/dev/null 2>&1; then
     exec pnpm dev --port "$WEB_PORT"
   else
@@ -55,6 +71,7 @@ case "${1:-}" in
     echo "  Terminal 1: bash scripts/dev-local.sh api"
     echo "  Terminal 2: bash scripts/dev-local.sh web"
     echo ""
-    echo "Or with Docker: make dev"
+    echo "Force SQLite: CREDARA_USE_SQLITE=1 bash scripts/dev-local.sh api"
+    echo "With Docker:  make dev"
     ;;
 esac
