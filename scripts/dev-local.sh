@@ -13,13 +13,27 @@ fi
 mkdir -p apps/api
 ln -sf ../../.env apps/api/.env
 
-set -a
-# shellcheck disable=SC1091
-source .env
-set +a
+read_env() {
+  local key="$1"
+  local default="${2:-}"
+  local line
+  line=$(grep -E "^${key}=" "$ROOT/.env" | head -1 || true)
+  if [[ -z "$line" ]]; then
+    printf '%s' "$default"
+    return
+  fi
+  local value="${line#*=}"
+  value="${value%\"}"
+  value="${value#\"}"
+  value="${value%\'}"
+  value="${value#\'}"
+  printf '%s' "$value"
+}
 
-API_PORT="${API_PORT:-8000}"
-WEB_PORT="${WEB_PORT:-3000}"
+API_PORT="$(read_env API_PORT 8000)"
+WEB_PORT="$(read_env WEB_PORT 3000)"
+FILE_DATABASE_URL="$(read_env DATABASE_URL "")"
+export DATABASE_URL="${DATABASE_URL:-$FILE_DATABASE_URL}"
 
 use_sqlite() {
   export DATABASE_URL="sqlite:///${ROOT}/apps/api/credara.db"
