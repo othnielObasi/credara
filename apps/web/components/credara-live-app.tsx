@@ -750,7 +750,7 @@ function AuthOverlay({ app }: { app: ReturnType<typeof useCredaraApp> }) {
           <>
             <label>Full name<input value={authForm.fullName} onChange={(e) => setAuthForm({ ...authForm, fullName: e.target.value })} /></label>
             <label>Business name<input value={authForm.businessName} onChange={(e) => setAuthForm({ ...authForm, businessName: e.target.value })} /></label>
-            <label>Role<select value={authForm.role} onChange={(e) => setAuthForm({ ...authForm, role: e.target.value as Role })}>{Object.keys(personas).map((role) => <option key={role} value={role}>{titleCase(role)}</option>)}</select></label>
+            <label>Role<select value={authForm.role} onChange={(e) => setAuthForm({ ...authForm, role: e.target.value as Role })}>{(['sme', 'buyer', 'financier'] as const).map((role) => <option key={role} value={role}>{titleCase(role)}</option>)}</select></label>
           </>
         )}
         <label>Email<input type="email" value={authForm.email} onChange={(e) => setAuthForm({ ...authForm, email: e.target.value })} /></label>
