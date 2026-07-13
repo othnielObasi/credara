@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, Header, HTTPException
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
+from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.hashing import sha256_hex
 from app.core.idempotency import assert_idempotent
@@ -11,7 +12,9 @@ from app.models.identity import User
 from app.models.trade import DeliveryProof, Invoice, Order, Receivable, SmartLC
 from app.schemas.trade import DeliveryProofCreate, DeliveryProofRead, InvoiceBuyerConfirmRequest, InvoiceCreate, InvoiceRead, OrderConfirmRequest, OrderCreate, OrderRead, ReceivableCreate, ReceivableRead, SmartLCCreate, SmartLCRead
 from app.services.audit import record_audit
+from app.services.polygon import ChainUnavailableError
 from app.services.proofs import build_delivery_hash, build_invoice_hash, create_proof_bundle, score_delivery_proof
+from app.services.smart_lc_chain import create_smart_lc_on_chain
 
 router = APIRouter()
 
@@ -222,7 +225,33 @@ def create_smart_lc(payload: SmartLCCreate, db: Session = Depends(get_db), user:
             raise HTTPException(403, 'You do not have access to this order')
     lc = SmartLC(order_id=order.id, seller_business_id=order.seller_business_id, buyer_name=order.buyer_name, amount=payload.amount, currency=payload.currency, status=SmartLCStatus.CREATED.value)
     db.add(lc); db.flush()
-    create_proof_bundle(db, order.seller_business_id, 'SMART_LC_CREATED', {'smart_lc_id': lc.id, 'order_id': order.id, 'amount': payload.amount}, order_id=order.id)
-    record_audit(db, user.id, 'smart_lc.created', 'smart_lc', lc.id)
+    order_proof_hash = sha256_hex({'smart_lc_id': lc.id, 'order_id': order.id, 'amount': payload.amount})
+    settings = get_settings()
+    try:
+        chain = create_smart_lc_on_chain(order_proof_hash=order_proof_hash, amount=payload.amount)
+        lc.contract_address = chain['contract_address']
+        lc.polygon_tx_hash = chain['tx_hash']
+    except ChainUnavailableError as exc:
+        # Off-chain create is fine for local/demo; fail closed only when chain env is expected.
+        if settings.smart_lc_factory_address and not settings.permits_simulated_chain:
+            raise HTTPException(503, f'Smart LC on-chain create failed: {exc}') from exc
+    except Exception as exc:
+        if settings.smart_lc_factory_address and not settings.permits_simulated_chain:
+            raise HTTPException(503, f'Smart LC on-chain create failed: {exc}') from exc
+    create_proof_bundle(
+        db,
+        order.seller_business_id,
+        'SMART_LC_CREATED',
+        {
+            'smart_lc_id': lc.id,
+            'order_id': order.id,
+            'amount': payload.amount,
+            'contract_address': lc.contract_address,
+            'tx_hash': lc.polygon_tx_hash,
+            'on_chain': bool(lc.contract_address),
+        },
+        order_id=order.id,
+    )
+    record_audit(db, user.id, 'smart_lc.created', 'smart_lc', lc.id, {'contract_address': lc.contract_address, 'tx_hash': lc.polygon_tx_hash})
     db.commit(); db.refresh(lc)
     return lc

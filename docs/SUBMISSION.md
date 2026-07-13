@@ -53,7 +53,7 @@ Target track: **Problem 1 — SME Trade Finance Is Broken**
 - `ReceivableRegistry` — tokenized receivable state
 - `SmartLCFactory` / `SmartLC` — programmable escrow with separated verifier / dispute-resolver / pauser roles (hardened against a single key holding all authority)
 - `CreditScoreAttestation` — on-chain snapshots of SME trade credit scores
-- `MockUSDC` — stablecoin settlement asset for the demo environment; designed to be swapped for a CBUAE-compliant AED stablecoin as the regulatory path matures
+- `MockUSDC` — stablecoin settlement asset for the demo environment; designed to be swapped for a CBUAE-compliant AED stablecoin as the regulatory path matures (pitch slide notes: `docs/PITCH_STABLECOIN_CORRIDOR.md`)
 
 **Application architecture:**
 

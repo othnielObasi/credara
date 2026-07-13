@@ -37,6 +37,8 @@ class Settings(BaseSettings):
     smart_lc_factory_address: str | None = None
     credit_score_attestation_address: str | None = None
     mock_usdc_address: str | None = None
+    # Optional distinct seller wallet for Amoy demos; defaults to the relayer address.
+    smart_lc_demo_seller_address: str | None = None
     # When false (default in production), never invent SHA-256 "tx hashes" for explorer links.
     allow_simulated_chain: bool | None = None
 

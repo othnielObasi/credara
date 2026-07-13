@@ -4,6 +4,7 @@ from secrets import token_urlsafe
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.hashing import sha256_hex
 from app.core.security import Role, require_roles
@@ -77,15 +78,47 @@ from app.schemas.enterprise import (
 )
 from app.schemas.trade import OrderRead
 from app.services.audit import record_audit
-from app.services.polygon import explorer_tx_url, publish_tx
+from app.services.polygon import ChainUnavailableError, explorer_tx_url, publish_tx
 from app.services.proofs import create_proof_bundle
 from app.services.scoring import calculate_trade_credit_score
+from app.services.smart_lc_chain import create_smart_lc_on_chain, fund_smart_lc_on_chain, release_smart_lc_on_chain
 
 router = APIRouter()
 
 
 def _now() -> datetime:
     return datetime.utcnow()
+
+
+def _smart_lc_chain_configured() -> bool:
+    settings = get_settings()
+    key = settings.relayer_private_key
+    return bool(
+        key
+        and not key.startswith('replace-with')
+        and settings.smart_lc_factory_address
+        and settings.mock_usdc_address
+    )
+
+
+def _delivery_proof_hash_for_lc(db: Session, lc: SmartLC) -> str:
+    proof = (
+        db.query(DeliveryProof)
+        .filter(DeliveryProof.order_id == lc.order_id, DeliveryProof.proof_hash.isnot(None))
+        .order_by(DeliveryProof.created_at.desc())
+        .first()
+    )
+    if proof and proof.proof_hash:
+        return proof.proof_hash
+    bundle = (
+        db.query(ProofBundle)
+        .filter(ProofBundle.order_id == lc.order_id, ProofBundle.proof_hash.isnot(None))
+        .order_by(ProofBundle.created_at.desc())
+        .first()
+    )
+    if bundle and bundle.proof_hash:
+        return bundle.proof_hash
+    return sha256_hex({'smart_lc_id': lc.id, 'order_id': lc.order_id, 'action': 'delivery_release'})
 
 
 def _get_or_404(db: Session, model, resource_id: str, label: str):
@@ -1090,18 +1123,43 @@ def fund_smart_lc(
 ):
     lc = _get_or_404(db, SmartLC, lc_id, 'Smart LC')
     before = {'status': lc.status}
-    lc.status = SmartLCStatus.FUNDED.value
+    settings = get_settings()
+    tx_hash: str | None = None
+    on_chain = False
+
     try:
-        tx_hash, on_chain = publish_tx(f'fund:{lc.id}:{lc.amount}')
-    except Exception:
-        tx_hash, on_chain = None, False
-    lc.polygon_tx_hash = tx_hash if on_chain else None
-    db.add(BlockchainOutbox(action='SMART_LC_FUNDED', payload_json={'smart_lc_id': lc.id, 'amount': float(lc.amount), 'on_chain': on_chain}, status='sent' if on_chain else 'pending', tx_hash=lc.polygon_tx_hash))
-    create_proof_bundle(db, lc.seller_business_id, 'SMART_LC_FUNDED', {'smart_lc_id': lc.id, 'tx_hash': lc.polygon_tx_hash, 'on_chain': on_chain}, order_id=lc.order_id)
-    record_audit(db, user.id, 'smart_lc.funded', 'smart_lc', lc.id, {'before': before, 'after': {'status': lc.status}, 'reason': payload.reason if payload else None})
-    _log_webhook(db, 'smart_lc.funded', {'smart_lc_id': lc.id, 'tx_hash': lc.polygon_tx_hash, 'on_chain': on_chain})
+        if not lc.contract_address and _smart_lc_chain_configured():
+            order_proof_hash = sha256_hex({'smart_lc_id': lc.id, 'order_id': lc.order_id, 'amount': float(lc.amount)})
+            created = create_smart_lc_on_chain(order_proof_hash=order_proof_hash, amount=float(lc.amount))
+            lc.contract_address = created['contract_address']
+            lc.polygon_tx_hash = created['tx_hash']
+        if lc.contract_address:
+            funded = fund_smart_lc_on_chain(contract_address=lc.contract_address, amount=float(lc.amount))
+            tx_hash = funded['tx_hash']
+            on_chain = True
+        elif settings.permits_simulated_chain:
+            tx_hash, on_chain = None, False
+        else:
+            raise ChainUnavailableError('Smart LC has no contract address and chain wiring is not configured')
+    except ChainUnavailableError as exc:
+        if settings.permits_simulated_chain and not lc.contract_address:
+            tx_hash, on_chain = None, False
+        else:
+            raise HTTPException(503, f'Smart LC fund failed: {exc}') from exc
+    except Exception as exc:
+        if settings.permits_simulated_chain and not lc.contract_address:
+            tx_hash, on_chain = None, False
+        else:
+            raise HTTPException(503, f'Smart LC fund failed: {exc}') from exc
+
+    lc.status = SmartLCStatus.FUNDED.value
+    lc.polygon_tx_hash = tx_hash if on_chain else (lc.polygon_tx_hash if lc.contract_address else None)
+    db.add(BlockchainOutbox(action='SMART_LC_FUNDED', payload_json={'smart_lc_id': lc.id, 'amount': float(lc.amount), 'contract_address': lc.contract_address, 'on_chain': on_chain}, status='sent' if on_chain else 'pending', tx_hash=tx_hash if on_chain else None))
+    create_proof_bundle(db, lc.seller_business_id, 'SMART_LC_FUNDED', {'smart_lc_id': lc.id, 'contract_address': lc.contract_address, 'tx_hash': lc.polygon_tx_hash, 'on_chain': on_chain}, order_id=lc.order_id)
+    record_audit(db, user.id, 'smart_lc.funded', 'smart_lc', lc.id, {'before': before, 'after': {'status': lc.status}, 'reason': payload.reason if payload else None, 'on_chain': on_chain})
+    _log_webhook(db, 'smart_lc.funded', {'smart_lc_id': lc.id, 'tx_hash': lc.polygon_tx_hash, 'on_chain': on_chain, 'contract_address': lc.contract_address})
     db.commit(); db.refresh(lc)
-    return {'smart_lc': lc, 'on_chain': on_chain, 'explorer_url': explorer_tx_url(lc.polygon_tx_hash, on_chain=on_chain)}
+    return {'smart_lc': lc, 'on_chain': on_chain, 'explorer_url': explorer_tx_url(lc.polygon_tx_hash if on_chain else None, on_chain=on_chain)}
 
 
 @router.post('/smart-lcs/{lc_id}/release')
@@ -1115,21 +1173,42 @@ def release_smart_lc(
     if lc.status == SmartLCStatus.DISPUTED.value:
         raise HTTPException(400, 'Cannot release a disputed Smart LC')
     before = {'status': lc.status}
-    lc.status = SmartLCStatus.RELEASED.value
+    settings = get_settings()
+    tx_hash: str | None = None
+    on_chain = False
+
     try:
-        tx_hash, on_chain = publish_tx(f'release:{lc.id}:{lc.amount}')
-    except Exception:
-        tx_hash, on_chain = None, False
-    lc.polygon_tx_hash = tx_hash if on_chain else None
+        if lc.contract_address:
+            delivery_proof_hash = _delivery_proof_hash_for_lc(db, lc)
+            released = release_smart_lc_on_chain(contract_address=lc.contract_address, delivery_proof_hash=delivery_proof_hash)
+            tx_hash = released['tx_hash']
+            on_chain = True
+        elif settings.permits_simulated_chain:
+            tx_hash, on_chain = None, False
+        else:
+            raise ChainUnavailableError('Smart LC has no contract address for on-chain release')
+    except ChainUnavailableError as exc:
+        if settings.permits_simulated_chain and not lc.contract_address:
+            tx_hash, on_chain = None, False
+        else:
+            raise HTTPException(503, f'Smart LC release failed: {exc}') from exc
+    except Exception as exc:
+        if settings.permits_simulated_chain and not lc.contract_address:
+            tx_hash, on_chain = None, False
+        else:
+            raise HTTPException(503, f'Smart LC release failed: {exc}') from exc
+
+    lc.status = SmartLCStatus.RELEASED.value
+    lc.polygon_tx_hash = tx_hash if on_chain else (lc.polygon_tx_hash if lc.contract_address else None)
     order = db.get(Order, lc.order_id)
     if order:
         order.status = OrderStatus.CLOSED.value
-    db.add(BlockchainOutbox(action='SMART_LC_RELEASED', payload_json={'smart_lc_id': lc.id, 'amount': float(lc.amount), 'on_chain': on_chain}, status='sent' if on_chain else 'pending', tx_hash=lc.polygon_tx_hash))
-    create_proof_bundle(db, lc.seller_business_id, 'SMART_LC_RELEASED', {'smart_lc_id': lc.id, 'tx_hash': lc.polygon_tx_hash, 'on_chain': on_chain}, order_id=lc.order_id)
-    record_audit(db, user.id, 'smart_lc.released', 'smart_lc', lc.id, {'before': before, 'after': {'status': lc.status}, 'reason': payload.reason if payload else None})
-    _log_webhook(db, 'smart_lc.released', {'smart_lc_id': lc.id, 'tx_hash': lc.polygon_tx_hash, 'on_chain': on_chain})
+    db.add(BlockchainOutbox(action='SMART_LC_RELEASED', payload_json={'smart_lc_id': lc.id, 'amount': float(lc.amount), 'contract_address': lc.contract_address, 'on_chain': on_chain}, status='sent' if on_chain else 'pending', tx_hash=tx_hash if on_chain else None))
+    create_proof_bundle(db, lc.seller_business_id, 'SMART_LC_RELEASED', {'smart_lc_id': lc.id, 'contract_address': lc.contract_address, 'tx_hash': lc.polygon_tx_hash, 'on_chain': on_chain}, order_id=lc.order_id)
+    record_audit(db, user.id, 'smart_lc.released', 'smart_lc', lc.id, {'before': before, 'after': {'status': lc.status}, 'reason': payload.reason if payload else None, 'on_chain': on_chain})
+    _log_webhook(db, 'smart_lc.released', {'smart_lc_id': lc.id, 'tx_hash': lc.polygon_tx_hash, 'on_chain': on_chain, 'contract_address': lc.contract_address})
     db.commit(); db.refresh(lc)
-    return {'smart_lc': lc, 'on_chain': on_chain, 'explorer_url': explorer_tx_url(lc.polygon_tx_hash, on_chain=on_chain)}
+    return {'smart_lc': lc, 'on_chain': on_chain, 'explorer_url': explorer_tx_url(lc.polygon_tx_hash if on_chain else None, on_chain=on_chain)}
 
 
 @router.post('/smart-lcs/{lc_id}/dispute')

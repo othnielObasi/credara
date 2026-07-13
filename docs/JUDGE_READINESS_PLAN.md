@@ -31,17 +31,18 @@ Demo climax: **live Amoy proof anchor → Polygonscan**.
 ### Amoy checklist (ops)
 
 1. Deploy `ProofRegistry`, `ReceivableRegistry`, `SmartLCFactory`, `MockUSDC`, `CreditScoreAttestation` to Amoy  
-2. Set on API: `RELAYER_PRIVATE_KEY`, `PROOF_REGISTRY_ADDRESS`, `SMART_LC_FACTORY_ADDRESS`, `POLYGON_RPC_URL`, `POLYGON_CHAIN_ID=80002`  
+2. Set on API: `RELAYER_PRIVATE_KEY`, `PROOF_REGISTRY_ADDRESS`, `SMART_LC_FACTORY_ADDRESS`, `MOCK_USDC_ADDRESS`, `POLYGON_RPC_URL`, `POLYGON_CHAIN_ID=80002` (grant factory `CREATOR_ROLE` to the relayer)  
 3. Fund relayer with Amoy POL  
 4. Anchor once from UI → confirm tx on https://amoy.polygonscan.com  
+5. Create → fund → release a Smart LC and confirm factory / LC txs on Polygonscan  
 
 ## P1 — same week
 
 | # | Fix | Status |
 |---|-----|--------|
 | 6 | AED / Mock USDC currency consistency (drop £ in landing/demo) | Done (landing) |
-| 7 | Wire Smart LC fund/release to real factory calls | Pending |
-| 8 | One slide: MockUSDC today → regulated AED stablecoin for B2B settlement | Pending (pitch) |
+| 7 | Wire Smart LC fund/release to real factory calls | Done — `smart_lc_chain.py` + trade/enterprise routes |
+| 8 | One slide: MockUSDC today → regulated AED stablecoin for B2B settlement | Done — `docs/PITCH_STABLECOIN_CORRIDOR.md` |
 | 9 | Hide Advanced nav behind Judge Mode off | Covered by #2 |
 
 ## P2 — if time
