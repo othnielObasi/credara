@@ -149,6 +149,23 @@ const navGroups: Array<{ title: string; pages: Array<{ key: PageKey; label: stri
   { title: 'Platform', pages: [{ key: 'admin', label: 'Admin' }, { key: 'riskRules', label: 'Risk Rules' }, { key: 'permissions', label: 'Permissions' }, { key: 'launch', label: 'Launch' }, { key: 'apiExplorer', label: 'API Explorer' }] },
 ];
 
+/** 3-minute judge demo path — invoice → confirm → proof → receivable → Smart LC */
+const judgeAllowed: Record<Role, PageKey[]> = {
+  sme: ['dashboard', 'contractDetail', 'invoiceDetail', 'delivery', 'receivables', 'proof', 'settlement', 'credit'],
+  buyer: ['dashboard', 'buyerInbox', 'invoiceDetail', 'delivery', 'proof', 'settlement'],
+  financier: ['dashboard', 'receivables', 'marketplace', 'dealRoom', 'proof', 'settlement', 'credit'],
+  admin: ['dashboard', 'kyb', 'proof', 'admin', 'settlementLedger'],
+  developer: ['dashboard', 'proof', 'apiExplorer', 'settings'],
+};
+
+const judgeSteps: Array<{ label: string; pages: PageKey[] }> = [
+  { label: '1 · Trade', pages: ['contractDetail', 'invoiceDetail'] },
+  { label: '2 · Confirm', pages: ['buyerInbox', 'delivery'] },
+  { label: '3 · Proof', pages: ['proof', 'evidence'] },
+  { label: '4 · Finance', pages: ['receivables', 'marketplace', 'dealRoom', 'credit'] },
+  { label: '5 · Settle', pages: ['settlement', 'settlementLedger'] },
+];
+
 const roleAllowed: Record<Role, PageKey[]> = {
   sme: ['dashboard', 'contractDetail', 'invoiceDetail', 'delivery', 'receivables', 'directory', 'opportunities', 'proposals', 'marketplace', 'wallets', 'settlement', 'settlementLedger', 'reconciliation', 'repayments', 'proof', 'evidence', 'credit', 'kyb', 'onboarding', 'businessProfile', 'invitations', 'members', 'settings'],
   buyer: ['dashboard', 'buyerInbox', 'contractDetail', 'invoiceDetail', 'delivery', 'directory', 'opportunities', 'wallets', 'settlement', 'settlementLedger', 'reconciliation', 'repayments', 'proof', 'evidence', 'credit', 'kyb', 'onboarding', 'businessProfile', 'invitations', 'members', 'settings'],
@@ -676,13 +693,28 @@ export default function CredaraLiveApp({ startInWorkspace = false, initialAuthMo
   const { state, setState, authForm, setAuthForm } = app;
   const workspaceName = (state.settings.workspace.name as string) || personas[state.role][0];
   const workspaceLabel = (state.settings.workspace.role as string) || personas[state.role][3];
-  const allowed = state.allowedPages.length ? state.allowedPages : roleAllowed[state.role];
-  const [title, subtitle] = pageTitles[allowed.includes(state.page) ? state.page : allowed[0]];
-  const activePage = allowed.includes(state.page) ? state.page : allowed[0];
+  const [judgeMode, setJudgeMode] = useState(true);
+  const rolePages = judgeMode ? judgeAllowed[state.role] : roleAllowed[state.role];
+  const allowed = (state.allowedPages.length ? state.allowedPages : rolePages).filter((page) => rolePages.includes(page));
+  const safeAllowed = allowed.length ? allowed : rolePages;
+  const [title, subtitle] = pageTitles[safeAllowed.includes(state.page) ? state.page : safeAllowed[0]];
+  const activePage = safeAllowed.includes(state.page) ? state.page : safeAllowed[0];
+  const activeJudgeStep = judgeSteps.findIndex((step) => step.pages.includes(activePage));
 
-  const switchPage = (page: PageKey) => setState((current) => ({ ...current, page: allowed.includes(page) ? page : allowed[0] }));
+  const switchPage = (page: PageKey) => setState((current) => ({ ...current, page: safeAllowed.includes(page) ? page : safeAllowed[0] }));
   const metrics = useMemo(() => getMetrics(state), [state]);
   const showLanding = !app.hasMounted || !state.token;
+
+  const visibleNavGroups = useMemo(
+    () =>
+      navGroups
+        .map((group) => ({
+          ...group,
+          pages: group.pages.filter((page) => safeAllowed.includes(page.key)),
+        }))
+        .filter((group) => group.pages.length > 0),
+    [safeAllowed],
+  );
 
   return (
     <main className="credara-app">
@@ -705,18 +737,35 @@ export default function CredaraLiveApp({ startInWorkspace = false, initialAuthMo
               value={state.role}
               onChange={(e) => {
                 const role = e.target.value as Role;
-                setState((current) => ({ ...current, role, page: roleAllowed[role][0] }));
+                const nextPages = judgeMode ? judgeAllowed[role] : roleAllowed[role];
+                setState((current) => ({ ...current, role, page: nextPages[0], allowedPages: nextPages }));
                 void app.loadNavigation(role);
               }}
             >
               {Object.keys(personas).map((role) => <option key={role} value={role}>{titleCase(role)}</option>)}
             </select>
+            <label className="judge-mode-toggle">
+              <input type="checkbox" checked={judgeMode} onChange={(e) => {
+                const next = e.target.checked;
+                setJudgeMode(next);
+                const nextPages = next ? judgeAllowed[state.role] : roleAllowed[state.role];
+                setState((current) => ({
+                  ...current,
+                  allowedPages: nextPages,
+                  page: nextPages.includes(current.page) ? current.page : nextPages[0],
+                }));
+              }} />
+              <span>Judge demo mode</span>
+            </label>
             <nav className="nav-stack">
-              {navGroups.map((group) => {
-                const pages = group.pages.filter((page) => allowed.includes(page.key));
-                if (!pages.length) return null;
-                return <div key={group.title} className="nav-group"><p>{group.title}</p>{pages.map((page) => <button key={page.key} className={`nav-item ${activePage === page.key ? 'active' : ''}`} onClick={() => switchPage(page.key)}>{page.label}</button>)}</div>;
-              })}
+              {visibleNavGroups.map((group) => (
+                <div key={group.title} className="nav-group">
+                  <p>{group.title}</p>
+                  {group.pages.map((page) => (
+                    <button key={page.key} className={`nav-item ${activePage === page.key ? 'active' : ''}`} onClick={() => switchPage(page.key)}>{page.label}</button>
+                  ))}
+                </div>
+              ))}
             </nav>
           </aside>
           <section className="workspace-main">
@@ -728,6 +777,19 @@ export default function CredaraLiveApp({ startInWorkspace = false, initialAuthMo
                 <button className="btn ghost" onClick={app.signOut}>Sign out</button>
               </div>
             </header>
+            {judgeMode && (
+              <section className="soft-banner judge-progress">
+                <div className="mark">Demo</div>
+                <div>
+                  <strong>Judge path · invoice → proof → finance → Smart LC</strong>
+                  <span>
+                    {judgeSteps.map((step, index) => (
+                      <span key={step.label} className={index === activeJudgeStep ? 'judge-step active' : 'judge-step'}>{step.label}{index < judgeSteps.length - 1 ? '  →  ' : ''}</span>
+                    ))}
+                  </span>
+                </div>
+              </section>
+            )}
             <LiveBar state={state} onConnect={app.connectLive} />
             <PageRenderer page={activePage} state={state} app={app} metrics={metrics} switchPage={switchPage} />
           </section>

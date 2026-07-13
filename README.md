@@ -13,6 +13,12 @@ Credara supports four operating workspaces:
 - Financier workspace: verified receivables, credit review, financing offers, smart LC funding, repayment tracking.
 - Admin/Risk workspace: KYB review, suspicious proof review, dispute resolution, audit trail.
 
+## Judge readiness (Polygon / UAE)
+
+Pitch Credara as **UAE B2B trade payments & working capital on Polygon**, not remittance/POS.
+
+See [`docs/JUDGE_READINESS_PLAN.md`](docs/JUDGE_READINESS_PLAN.md) for the P0–P2 checklist (fail-closed chain writes, Judge Mode path, Amoy ops).
+
 ## Architecture
 
 ```text

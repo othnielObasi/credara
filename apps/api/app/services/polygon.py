@@ -16,8 +16,13 @@ ANCHOR_ABI = [
 ]
 
 
-def explorer_tx_url(tx_hash: str | None) -> str | None:
-    if not tx_hash:
+class ChainUnavailableError(RuntimeError):
+    """Raised when on-chain publish is required but relayer/RPC/registry is unavailable."""
+
+
+def explorer_tx_url(tx_hash: str | None, *, on_chain: bool = True) -> str | None:
+    """Only return a Polygonscan URL for real on-chain transactions."""
+    if not tx_hash or not on_chain:
         return None
     settings = get_settings()
     return f"{settings.polygon_explorer_base.rstrip('/')}/tx/{tx_hash}"
@@ -28,12 +33,19 @@ def simulate_tx_hash(seed: str) -> str:
     return '0x' + hashlib.sha256(seed.encode()).hexdigest()
 
 
-def publish_tx(seed: str, *, proof_hash: str | None = None) -> tuple[str, bool]:
-    """Return (tx_hash, is_on_chain). Falls back to deterministic simulation when relayer is not configured."""
+def publish_tx(seed: str, *, proof_hash: str | None = None) -> tuple[str | None, bool]:
+    """Return (tx_hash, is_on_chain).
+
+    Never pretends a SHA-256 digest is a live Polygon tx for explorers.
+    In production (unless ALLOW_SIMULATED_CHAIN=true), missing relayer config raises.
+    Local/dev may return (None, False) so callers can mark receipts as Simulated.
+    """
     settings = get_settings()
     key = settings.relayer_private_key
     if not key or key.startswith('replace-with'):
-        return simulate_tx_hash(seed), False
+        if not settings.permits_simulated_chain:
+            raise ChainUnavailableError('Relayer private key is not configured for on-chain publish')
+        return None, False
 
     try:
         from eth_account import Account
@@ -41,7 +53,9 @@ def publish_tx(seed: str, *, proof_hash: str | None = None) -> tuple[str, bool]:
 
         w3 = Web3(Web3.HTTPProvider(settings.polygon_rpc_url))
         if not w3.is_connected():
-            return simulate_tx_hash(seed), False
+            if not settings.permits_simulated_chain:
+                raise ChainUnavailableError('Polygon RPC is not reachable')
+            return None, False
 
         account = Account.from_key(key)
         chain_id = settings.polygon_chain_id
@@ -77,5 +91,9 @@ def publish_tx(seed: str, *, proof_hash: str | None = None) -> tuple[str, bool]:
         signed = account.sign_transaction(tx)
         tx_hash = w3.eth.send_raw_transaction(signed.raw_transaction)
         return tx_hash.hex(), True
-    except Exception:
-        return simulate_tx_hash(seed), False
+    except ChainUnavailableError:
+        raise
+    except Exception as exc:
+        if not settings.permits_simulated_chain:
+            raise ChainUnavailableError(f'On-chain publish failed: {exc}') from exc
+        return None, False

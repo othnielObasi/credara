@@ -321,6 +321,34 @@ pre {
   margin-bottom: 22px;
 }
 
+.judge-mode-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #f8fafc;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.judge-mode-toggle input {
+  accent-color: var(--indigo);
+}
+
+.judge-progress .judge-step {
+  opacity: 0.55;
+}
+
+.judge-progress .judge-step.active {
+  opacity: 1;
+  color: var(--indigo);
+  font-weight: 850;
+}
+
 .nav-stack {
   display: grid;
   gap: 20px;

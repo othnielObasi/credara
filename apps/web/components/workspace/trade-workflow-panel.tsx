@@ -21,7 +21,7 @@ export function TradeWorkflowPanel({ businessId, businessName, apiRole, onNotify
   const [receivables, setReceivables] = useState<Receivable[]>([]);
   const [proofs, setProofs] = useState<DeliveryProof[]>([]);
   const [anchorUrl, setAnchorUrl] = useState<string | null>(null);
-  const [anchorOnChain, setAnchorOnChain] = useState(false);
+  const [anchorOnChain, setAnchorOnChain] = useState<boolean | null>(null);
   const [buyerName, setBuyerName] = useState('');
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('24500');
@@ -182,11 +182,13 @@ export function TradeWorkflowPanel({ businessId, businessName, apiRole, onNotify
         invoice_id: invoice?.id,
         business_id: businessId || undefined,
       });
-      setAnchorUrl(result.explorer_url);
-      setAnchorOnChain(result.on_chain);
+      setAnchorUrl(result.explorer_url || null);
+      setAnchorOnChain(Boolean(result.on_chain));
       onNotify(
-        result.on_chain ? 'Anchored on Polygon Amoy' : 'Proof receipt generated',
-        result.explorer_url || result.polygon_tx_hash,
+        result.on_chain ? 'Anchored on Polygon Amoy' : 'Simulated proof receipt',
+        result.on_chain
+          ? (result.explorer_url || result.polygon_tx_hash || 'On-chain')
+          : 'Not broadcast — configure Amoy relayer for Polygonscan',
       );
     } catch (e) {
       onNotify('Anchor failed', e instanceof Error ? e.message.slice(0, 120) : 'Error');
@@ -207,13 +209,19 @@ export function TradeWorkflowPanel({ businessId, businessName, apiRole, onNotify
         </div>
       </section>
 
-      {anchorUrl && (
+      {anchorOnChain !== null && (
         <section className="panel">
           <strong>Credara proof receipt · Polygon Amoy</strong>
           <p style={{ color: 'var(--muted)', margin: '8px 0' }}>
-            {anchorOnChain ? 'Live transaction anchored by Credara' : 'Simulated tx (set RELAYER_PRIVATE_KEY for on-chain)'}
+            {anchorOnChain
+              ? 'Live transaction anchored by Credara'
+              : 'Simulated receipt only — not broadcast on Polygon. Configure RELAYER_PRIVATE_KEY + PROOF_REGISTRY_ADDRESS for a live Amoy tx.'}
           </p>
-          <a className="btn secondary" href={anchorUrl} target="_blank" rel="noreferrer">View on Polygonscan</a>
+          {anchorOnChain && anchorUrl ? (
+            <a className="btn secondary" href={anchorUrl} target="_blank" rel="noreferrer">View on Polygonscan</a>
+          ) : (
+            <span className="pill amber">Simulated</span>
+          )}
         </section>
       )}
 
@@ -493,7 +501,12 @@ export function ProofLedgerPage({ onNotify }: { onNotify: (title: string, messag
     try {
       const result = await proofApi.anchor({ bundle_id: bundleId });
       await refresh();
-      onNotify(result.on_chain ? 'Anchored on Amoy' : 'Simulated anchor', result.explorer_url || result.polygon_tx_hash);
+      onNotify(
+        result.on_chain ? 'Anchored on Amoy' : 'Simulated anchor',
+        result.on_chain
+          ? (result.explorer_url || result.polygon_tx_hash || 'On-chain')
+          : 'Not broadcast — configure Amoy relayer',
+      );
     } catch (e) {
       onNotify('Failed', e instanceof Error ? e.message.slice(0, 120) : 'Error');
     } finally {
@@ -515,9 +528,9 @@ export function ProofLedgerPage({ onNotify }: { onNotify: (title: string, messag
               <tr key={b.id}>
                 <td>{b.bundle_type}</td>
                 <td><code>{b.proof_hash.slice(0, 14)}…</code></td>
-                <td>{titleCase(b.status)}</td>
+                <td>{titleCase(b.status)}{b.on_chain === false || (!b.explorer_url && b.status !== 'anchored') ? <span className="pill amber" style={{ marginLeft: 8 }}>Simulated</span> : null}</td>
                 <td>{b.explorer_url ? <a href={b.explorer_url} target="_blank" rel="noreferrer">Polygonscan</a> : '—'}</td>
-                <td>{!b.polygon_tx_hash ? <button type="button" className="btn small" disabled={loading} onClick={() => anchor(b.id)}>Anchor</button> : null}</td>
+                <td>{!b.on_chain ? <button type="button" className="btn small" disabled={loading} onClick={() => anchor(b.id)}>Anchor</button> : null}</td>
               </tr>
             ))}
           </tbody></table>

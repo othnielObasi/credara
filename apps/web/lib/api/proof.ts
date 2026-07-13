@@ -6,6 +6,7 @@ export type ProofBundle = {
   bundle_type: string;
   proof_hash: string;
   status: string;
+  on_chain?: boolean;
   polygon_tx_hash: string | null;
   explorer_url: string | null;
   created_at: string;
@@ -14,8 +15,9 @@ export type ProofBundle = {
 export type AnchorResult = {
   bundle_id: string;
   proof_hash: string;
-  polygon_tx_hash: string;
+  polygon_tx_hash: string | null;
   on_chain: boolean;
+  status?: string;
   explorer_url: string | null;
 };
 

@@ -1091,14 +1091,17 @@ def fund_smart_lc(
     lc = _get_or_404(db, SmartLC, lc_id, 'Smart LC')
     before = {'status': lc.status}
     lc.status = SmartLCStatus.FUNDED.value
-    tx_hash, _on_chain = publish_tx(f'fund:{lc.id}:{lc.amount}')
-    lc.polygon_tx_hash = tx_hash
-    db.add(BlockchainOutbox(action='SMART_LC_FUNDED', payload_json={'smart_lc_id': lc.id, 'amount': float(lc.amount)}, status='sent', tx_hash=lc.polygon_tx_hash))
-    create_proof_bundle(db, lc.seller_business_id, 'SMART_LC_FUNDED', {'smart_lc_id': lc.id, 'tx_hash': lc.polygon_tx_hash}, order_id=lc.order_id)
+    try:
+        tx_hash, on_chain = publish_tx(f'fund:{lc.id}:{lc.amount}')
+    except Exception:
+        tx_hash, on_chain = None, False
+    lc.polygon_tx_hash = tx_hash if on_chain else None
+    db.add(BlockchainOutbox(action='SMART_LC_FUNDED', payload_json={'smart_lc_id': lc.id, 'amount': float(lc.amount), 'on_chain': on_chain}, status='sent' if on_chain else 'pending', tx_hash=lc.polygon_tx_hash))
+    create_proof_bundle(db, lc.seller_business_id, 'SMART_LC_FUNDED', {'smart_lc_id': lc.id, 'tx_hash': lc.polygon_tx_hash, 'on_chain': on_chain}, order_id=lc.order_id)
     record_audit(db, user.id, 'smart_lc.funded', 'smart_lc', lc.id, {'before': before, 'after': {'status': lc.status}, 'reason': payload.reason if payload else None})
-    _log_webhook(db, 'smart_lc.funded', {'smart_lc_id': lc.id, 'tx_hash': lc.polygon_tx_hash})
+    _log_webhook(db, 'smart_lc.funded', {'smart_lc_id': lc.id, 'tx_hash': lc.polygon_tx_hash, 'on_chain': on_chain})
     db.commit(); db.refresh(lc)
-    return {'smart_lc': lc, 'explorer_url': explorer_tx_url(lc.polygon_tx_hash)}
+    return {'smart_lc': lc, 'on_chain': on_chain, 'explorer_url': explorer_tx_url(lc.polygon_tx_hash, on_chain=on_chain)}
 
 
 @router.post('/smart-lcs/{lc_id}/release')
@@ -1113,17 +1116,20 @@ def release_smart_lc(
         raise HTTPException(400, 'Cannot release a disputed Smart LC')
     before = {'status': lc.status}
     lc.status = SmartLCStatus.RELEASED.value
-    tx_hash, _on_chain = publish_tx(f'release:{lc.id}:{lc.amount}')
-    lc.polygon_tx_hash = tx_hash
+    try:
+        tx_hash, on_chain = publish_tx(f'release:{lc.id}:{lc.amount}')
+    except Exception:
+        tx_hash, on_chain = None, False
+    lc.polygon_tx_hash = tx_hash if on_chain else None
     order = db.get(Order, lc.order_id)
     if order:
         order.status = OrderStatus.CLOSED.value
-    db.add(BlockchainOutbox(action='SMART_LC_RELEASED', payload_json={'smart_lc_id': lc.id, 'amount': float(lc.amount)}, status='sent', tx_hash=lc.polygon_tx_hash))
-    create_proof_bundle(db, lc.seller_business_id, 'SMART_LC_RELEASED', {'smart_lc_id': lc.id, 'tx_hash': lc.polygon_tx_hash}, order_id=lc.order_id)
+    db.add(BlockchainOutbox(action='SMART_LC_RELEASED', payload_json={'smart_lc_id': lc.id, 'amount': float(lc.amount), 'on_chain': on_chain}, status='sent' if on_chain else 'pending', tx_hash=lc.polygon_tx_hash))
+    create_proof_bundle(db, lc.seller_business_id, 'SMART_LC_RELEASED', {'smart_lc_id': lc.id, 'tx_hash': lc.polygon_tx_hash, 'on_chain': on_chain}, order_id=lc.order_id)
     record_audit(db, user.id, 'smart_lc.released', 'smart_lc', lc.id, {'before': before, 'after': {'status': lc.status}, 'reason': payload.reason if payload else None})
-    _log_webhook(db, 'smart_lc.released', {'smart_lc_id': lc.id, 'tx_hash': lc.polygon_tx_hash})
+    _log_webhook(db, 'smart_lc.released', {'smart_lc_id': lc.id, 'tx_hash': lc.polygon_tx_hash, 'on_chain': on_chain})
     db.commit(); db.refresh(lc)
-    return {'smart_lc': lc, 'explorer_url': explorer_tx_url(lc.polygon_tx_hash)}
+    return {'smart_lc': lc, 'on_chain': on_chain, 'explorer_url': explorer_tx_url(lc.polygon_tx_hash, on_chain=on_chain)}
 
 
 @router.post('/smart-lcs/{lc_id}/dispute')
@@ -1155,14 +1161,17 @@ def refund_smart_lc(
     lc = _get_or_404(db, SmartLC, lc_id, 'Smart LC')
     before = {'status': lc.status}
     lc.status = SmartLCStatus.REFUNDED.value
-    tx_hash, _on_chain = publish_tx(f'refund:{lc.id}:{lc.amount}')
-    lc.polygon_tx_hash = tx_hash
-    db.add(BlockchainOutbox(action='SMART_LC_REFUNDED', payload_json={'smart_lc_id': lc.id, 'amount': float(lc.amount)}, status='sent', tx_hash=lc.polygon_tx_hash))
-    create_proof_bundle(db, lc.seller_business_id, 'SMART_LC_REFUNDED', {'smart_lc_id': lc.id, 'tx_hash': lc.polygon_tx_hash}, order_id=lc.order_id)
+    try:
+        tx_hash, on_chain = publish_tx(f'refund:{lc.id}:{lc.amount}')
+    except Exception:
+        tx_hash, on_chain = None, False
+    lc.polygon_tx_hash = tx_hash if on_chain else None
+    db.add(BlockchainOutbox(action='SMART_LC_REFUNDED', payload_json={'smart_lc_id': lc.id, 'amount': float(lc.amount), 'on_chain': on_chain}, status='sent' if on_chain else 'pending', tx_hash=lc.polygon_tx_hash))
+    create_proof_bundle(db, lc.seller_business_id, 'SMART_LC_REFUNDED', {'smart_lc_id': lc.id, 'tx_hash': lc.polygon_tx_hash, 'on_chain': on_chain}, order_id=lc.order_id)
     record_audit(db, user.id, 'smart_lc.refunded', 'smart_lc', lc.id, {'before': before, 'after': {'status': lc.status}, 'reason': payload.reason if payload else None})
-    _log_webhook(db, 'smart_lc.refunded', {'smart_lc_id': lc.id, 'tx_hash': lc.polygon_tx_hash})
+    _log_webhook(db, 'smart_lc.refunded', {'smart_lc_id': lc.id, 'tx_hash': lc.polygon_tx_hash, 'on_chain': on_chain})
     db.commit(); db.refresh(lc)
-    return {'smart_lc': lc, 'explorer_url': explorer_tx_url(lc.polygon_tx_hash)}
+    return {'smart_lc': lc, 'on_chain': on_chain, 'explorer_url': explorer_tx_url(lc.polygon_tx_hash, on_chain=on_chain)}
 
 
 @router.post('/finance/businesses/{business_id}/score/attest')
@@ -1176,11 +1185,11 @@ def attest_trade_credit_score(
     if not score:
         score = calculate_trade_credit_score(db, business_id)
         db.flush()
-    tx_hash, _on_chain = publish_tx(f'score:{score.id}:{score.score}', proof_hash=score.proof_hash)
-    score.polygon_tx_hash = tx_hash
-    db.add(BlockchainOutbox(action='CREDIT_SCORE_ATTESTED', payload_json={'trust_score_id': score.id, 'business_id': business_id, 'score': score.score}, status='sent', tx_hash=score.polygon_tx_hash))
-    create_proof_bundle(db, business_id, 'CREDIT_SCORE_ATTESTED', {'trust_score_id': score.id, 'score': score.score, 'tx_hash': score.polygon_tx_hash})
-    record_audit(db, user.id, 'credit_score.attested', 'trust_score', score.id, {'score': score.score, 'tx_hash': score.polygon_tx_hash})
-    _log_webhook(db, 'credit_score.attested', {'trust_score_id': score.id, 'score': score.score, 'tx_hash': score.polygon_tx_hash})
+    tx_hash, on_chain = publish_tx(f'score:{score.id}:{score.score}', proof_hash=score.proof_hash)
+    score.polygon_tx_hash = tx_hash if on_chain else None
+    db.add(BlockchainOutbox(action='CREDIT_SCORE_ATTESTED', payload_json={'trust_score_id': score.id, 'business_id': business_id, 'score': score.score, 'on_chain': on_chain}, status='sent' if on_chain else 'pending', tx_hash=score.polygon_tx_hash))
+    create_proof_bundle(db, business_id, 'CREDIT_SCORE_ATTESTED', {'trust_score_id': score.id, 'score': score.score, 'tx_hash': score.polygon_tx_hash, 'on_chain': on_chain})
+    record_audit(db, user.id, 'credit_score.attested', 'trust_score', score.id, {'score': score.score, 'tx_hash': score.polygon_tx_hash, 'on_chain': on_chain})
+    _log_webhook(db, 'credit_score.attested', {'trust_score_id': score.id, 'score': score.score, 'tx_hash': score.polygon_tx_hash, 'on_chain': on_chain})
     db.commit(); db.refresh(score)
-    return {'trust_score': score, 'explorer_url': explorer_tx_url(score.polygon_tx_hash)}
+    return {'trust_score': score, 'on_chain': on_chain, 'explorer_url': explorer_tx_url(score.polygon_tx_hash, on_chain=on_chain)}

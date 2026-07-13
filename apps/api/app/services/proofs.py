@@ -50,10 +50,11 @@ def build_delivery_hash(proof: DeliveryProof) -> str:
 
 def create_proof_bundle(db: Session, business_id: str, bundle_type: str, payload: dict, order_id: str | None = None, invoice_id: str | None = None, delivery_proof_id: str | None = None) -> ProofBundle:
     proof_hash = sha256_hex({'type': bundle_type, 'payload': payload})
-    # Anchored synchronously (same pattern as the Smart LC handlers in
-    # enterprise.py) rather than left pending for a background poller -
-    # there is no long-running worker process in the serverless deployment.
-    tx_hash, _on_chain = publish_tx(f'anchor:{bundle_type}:{proof_hash}', proof_hash=proof_hash)
+    # Prefer live Amoy when relayer is configured; otherwise leave off-chain (never fake explorer txs).
+    try:
+        tx_hash, on_chain = publish_tx(f'anchor:{bundle_type}:{proof_hash}', proof_hash=proof_hash)
+    except Exception:
+        tx_hash, on_chain = None, False
     bundle = ProofBundle(
         business_id=business_id,
         order_id=order_id,
@@ -62,9 +63,16 @@ def create_proof_bundle(db: Session, business_id: str, bundle_type: str, payload
         bundle_type=bundle_type,
         payload_json=payload,
         proof_hash=proof_hash,
-        polygon_tx_hash=tx_hash,
-        status=ProofStatus.ANCHORED.value,
+        polygon_tx_hash=tx_hash if on_chain else None,
+        status=ProofStatus.ANCHORED.value if on_chain else ProofStatus.VERIFIED.value,
     )
     db.add(bundle)
-    db.add(BlockchainOutbox(action='ANCHOR_PROOF', payload_json={'proof_hash': proof_hash, 'bundle_type': bundle_type, 'business_id': business_id}, status='sent', tx_hash=tx_hash))
+    db.add(
+        BlockchainOutbox(
+            action='ANCHOR_PROOF',
+            payload_json={'proof_hash': proof_hash, 'bundle_type': bundle_type, 'business_id': business_id, 'on_chain': on_chain},
+            status='sent' if on_chain else 'pending',
+            tx_hash=tx_hash if on_chain else None,
+        )
+    )
     return bundle

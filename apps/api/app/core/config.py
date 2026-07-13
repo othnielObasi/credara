@@ -37,6 +37,8 @@ class Settings(BaseSettings):
     smart_lc_factory_address: str | None = None
     credit_score_attestation_address: str | None = None
     mock_usdc_address: str | None = None
+    # When false (default in production), never invent SHA-256 "tx hashes" for explorer links.
+    allow_simulated_chain: bool | None = None
 
     # KYB: mock only allowed outside production unless allow_mock_kyb=true.
     kyb_provider: str = 'mock'
@@ -72,6 +74,12 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return self.environment.lower() in {'production', 'prod'}
+
+    @property
+    def permits_simulated_chain(self) -> bool:
+        if self.allow_simulated_chain is not None:
+            return self.allow_simulated_chain
+        return not self.is_production
 
 
 @lru_cache
