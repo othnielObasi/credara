@@ -91,7 +91,7 @@ class PaymentIntentCreateRequest(BaseModel):
 
 
 class SubmitTxRequest(BaseModel):
-    tx_hash: str
+    tx_hash: str | None = None
     confirmations: int = 0
 
 
@@ -765,7 +765,7 @@ def submit_payment_intent(
         raise HTTPException(404, "Payment intent not found")
     _require_workspace_access(db, user, intent.workspace_id)
     intent.status = "submitted"
-    intent.tx_hash = request.tx_hash
+    intent.tx_hash = request.tx_hash or intent.tx_hash
     intent.confirmations = request.confirmations
     intent.submitted_at = datetime.utcnow()
     ledger_entry(
@@ -778,7 +778,7 @@ def submit_payment_intent(
         description=f"Transaction submitted for {intent.intent_type}",
         amount=float(intent.amount),
         status="submitted",
-        verifier=intent.tx_hash,
+        verifier=intent.tx_hash or "pending",
         reference_type="payment_intent",
         reference_id=intent.id,
         docs=["Transaction"],

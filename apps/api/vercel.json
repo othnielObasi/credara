@@ -1,0 +1,11 @@
+{
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/api/index" }
+  ],
+  "crons": [
+    {
+      "path": "/api/v1/internal/relayer/drain",
+      "schedule": "0 12 * * *"
+    }
+  ]
+}

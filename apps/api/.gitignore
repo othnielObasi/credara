@@ -1,0 +1,5 @@
+.vercel
+.cron_secret.local
+.env*
+
+.cron_secret.local

@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 from secrets import token_urlsafe
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -1036,6 +1036,10 @@ def simulate_api_call(
     db: Session = Depends(get_db),
     user: User = Depends(require_roles(Role.DEVELOPER, Role.ADMIN)),
 ):
+    from app.core.config import get_settings
+
+    if get_settings().is_production:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail='API simulations are disabled in production')
     endpoint_map = {
         'anchorProof': ('POST', '/api/v1/proof-ledger/anchor'),
         'createReceivable': ('POST', '/api/v1/trade/receivables'),

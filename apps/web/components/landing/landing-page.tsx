@@ -10,59 +10,101 @@ export default function LandingPage({ onSignIn, onSignUp }: LandingPageProps) {
 
   return (
     <div className="landing-page landing">
-      <header className="landing-nav">
-        <div className="brand-row"><div className="brand-mark">C</div><strong>Credara</strong></div>
-        <nav className="landing-links" aria-label="Sections">
+      <header className="landing-nav public-nav">
+        <a className="brand" href="#top" onClick={(e) => { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>
+          <div className="brand-mark" aria-hidden />
+          <strong className="brand-name">credara</strong>
+        </a>
+        <nav className="landing-links public-links" aria-label="Sections">
           <button type="button" onClick={() => scrollTo('solution')}>Solution</button>
           <button type="button" onClick={() => scrollTo('workflow')}>How it works</button>
-          <button type="button" onClick={() => scrollTo('uae')}>For teams</button>
+          <button type="button" onClick={() => scrollTo('audience')}>For teams</button>
           <button type="button" onClick={() => scrollTo('polygon')}>Polygon stack</button>
         </nav>
-        <div className="top-actions">
+        <div className="top-actions public-actions">
           <button type="button" className="btn secondary" onClick={onSignIn}>Sign in</button>
           <button type="button" className="btn" onClick={onSignUp}>Sign up</button>
+          <button type="button" className="btn dark" onClick={onSignUp}>View demo workspace</button>
         </div>
       </header>
 
-      <section className="landing-hero">
+      <section className="landing-hero hero">
+        <div className="hero-infra-bg" aria-hidden />
         <div>
-          <small className="eyebrow">Built on Polygon for UAE stablecoin and SME trade finance rails</small>
+          <div className="eyebrow">Built on Polygon for UAE stablecoin and SME trade finance rails</div>
           <h1>Tokenized receivables, smart LCs, and <span>on-chain trade credit.</span></h1>
-          <p>Credara helps SMEs, buyers, and financiers convert verified invoices, delivery proof, and settlement events into finance-ready receivables on Polygon — with stablecoin settlement and enterprise-grade compliance workflows.</p>
+          <p>
+            Credara helps SMEs, buyers, and financiers convert verified invoices, delivery proof, and settlement events
+            into finance-ready receivables on Polygon — with stablecoin settlement and enterprise-grade compliance workflows.
+          </p>
           <div className="hero-actions">
             <button type="button" className="btn dark" onClick={onSignUp}>Start enterprise demo</button>
             <button type="button" className="btn secondary" onClick={() => scrollTo('workflow')}>See process flow</button>
           </div>
         </div>
         <div className="visual-card">
-          <div className="visual-top"><h3>Credara trade finance flow</h3><span className="pill green">Experimentable</span></div>
+          <div className="visual-top">
+            <h3>Credara trade finance flow</h3>
+            <span className="pill green">Experimentable</span>
+          </div>
           <div className="chain-panel">
             <small>Receivables eligible for finance</small>
             <div className="amount">£182,700</div>
             <p>Buyer-confirmed invoices + verified delivery proof + Polygon proof receipt + Smart LC settlement.</p>
           </div>
           <div className="flow-steps">
-            <div className="flow-row"><div className="flow-icon">▤</div><div><strong>Invoice confirmed</strong><span>Buyer validates obligation</span></div><span className="pill blue">Trade</span></div>
-            <div className="flow-row"><div className="flow-icon">◎</div><div><strong>Proof anchored on Polygon</strong><span>ProofRegistry + ReceivableRegistry</span></div><span className="pill indigo">On-chain</span></div>
-            <div className="flow-row"><div className="flow-icon">£</div><div><strong>Stablecoin settlement</strong><span>Mock USDC now, AED stablecoin-ready</span></div><span className="pill teal">Payment</span></div>
+            <div className="flow-row">
+              <div className="flow-icon">▤</div>
+              <div><strong>Invoice confirmed</strong><span>Buyer validates obligation</span></div>
+              <span className="pill blue">Trade</span>
+            </div>
+            <div className="flow-row">
+              <div className="flow-icon">◎</div>
+              <div><strong>Proof anchored on Polygon</strong><span>ProofRegistry + ReceivableRegistry</span></div>
+              <span className="pill indigo">On-chain</span>
+            </div>
+            <div className="flow-row">
+              <div className="flow-icon">£</div>
+              <div><strong>Stablecoin settlement</strong><span>Mock USDC now, AED stablecoin-ready</span></div>
+              <span className="pill teal">Payment</span>
+            </div>
           </div>
         </div>
       </section>
 
-      <section className="landing-band">
+      <section className="landing-clean-band">
         <div className="trust-strip">
-          <div><small className="eyebrow">Product focus</small><strong>SME trade finance infrastructure</strong><p style={{ color: 'var(--muted)', fontSize: 13, margin: '6px 0 0' }}>Not a generic wallet or marketplace. Credara converts verified commerce into financeable proof.</p></div>
-          <div><small className="eyebrow">Polygon rail</small><strong>Amoy-ready</strong><p style={{ color: 'var(--muted)', fontSize: 13, margin: '6px 0 0' }}>ProofRegistry, SmartLC, receivables, and score attestations.</p></div>
-          <div><small className="eyebrow">Settlement</small><strong>Stablecoin-ready</strong><p style={{ color: 'var(--muted)', fontSize: 13, margin: '6px 0 0' }}>Mock USDC now; AED stablecoin path for UAE adoption.</p></div>
-          <div><small className="eyebrow">Launch context</small><strong>UAE / DIFC</strong><p style={{ color: 'var(--muted)', fontSize: 13, margin: '6px 0 0' }}>Designed for regulated SME trade corridors and fintech partners.</p></div>
+          <div>
+            <span className="label">Product focus</span>
+            <strong>SME trade finance infrastructure</strong>
+            <p>Not a generic wallet or marketplace. Credara converts verified commerce into financeable proof.</p>
+          </div>
+          <div>
+            <span className="label">Polygon rail</span>
+            <strong>Amoy-ready</strong>
+            <p>ProofRegistry, SmartLC, receivables, and score attestations.</p>
+          </div>
+          <div>
+            <span className="label">Settlement</span>
+            <strong>Stablecoin-ready</strong>
+            <p>Mock USDC now; AED stablecoin path for UAE adoption.</p>
+          </div>
+          <div>
+            <span className="label">Launch context</span>
+            <strong>UAE / DIFC</strong>
+            <p>Designed for regulated SME trade corridors and fintech partners.</p>
+          </div>
         </div>
       </section>
 
       <section className="scale-section">
         <div className="scale-kicker">Built for a real market gap</div>
         <h2>One integrated platform for verified trade, capital access, and settlement.</h2>
-        <p>Credara is designed around the Polygon challenge requirement: tokenized receivables, smart contract-based letters of credit, and on-chain trade credit scoring for SMEs.</p>
-        <div className="trust-strip scale-metrics">
+        <p>
+          Credara is designed around the Polygon challenge requirement: tokenized receivables, smart contract-based
+          letters of credit, and on-chain trade credit scoring for SMEs.
+        </p>
+        <div className="scale-metrics">
           <div className="scale-metric"><strong>$2T+</strong><span>global trade finance gap Credara targets</span></div>
           <div className="scale-metric"><strong>40%</strong><span>SME applications rejected due to weak evidence</span></div>
           <div className="scale-metric"><strong>7–10d</strong><span>manual LC processing Credara compresses</span></div>
@@ -70,35 +112,7 @@ export default function LandingPage({ onSignIn, onSignUp }: LandingPageProps) {
         </div>
       </section>
 
-      <section className="architecture-section">
-        <div className="scale-kicker">Product architecture</div>
-        <h2>One shared trust layer. Four connected workspaces.</h2>
-        <p>Each party works in their own space but acts on the same verified record — so no one re-checks anyone else&apos;s paperwork.</p>
-        <div className="architecture-grid">
-          <div className="architecture-card">
-            <small className="eyebrow">SME raises</small>
-            <strong>SME Workspace</strong>
-            <p>Orders, invoices, delivery proof, receivables, finance readiness and trust/credit scoring.</p>
-          </div>
-          <div className="architecture-card">
-            <small className="eyebrow">Buyer confirms</small>
-            <strong>Buyer Workspace</strong>
-            <p>Supplier verification, invoice confirmation, delivery confirmation, and dispute handling.</p>
-          </div>
-          <div className="architecture-card">
-            <small className="eyebrow">Financier funds</small>
-            <strong>Financier Workspace</strong>
-            <p>Verified receivables, credit score, financing offers, Smart LC funding and repayment tracking.</p>
-          </div>
-          <div className="architecture-card">
-            <small className="eyebrow">Admin audits</small>
-            <strong>Admin / Risk Workspace</strong>
-            <p>KYB review, suspicious proof review, dispute resolution and full audit trail.</p>
-          </div>
-        </div>
-      </section>
-
-      <div id="workflow" />
+      <div id="workflow" className="scroll-anchor" />
       <section className="process-panel">
         <div className="process-inner">
           <div>
@@ -112,14 +126,17 @@ export default function LandingPage({ onSignIn, onSignUp }: LandingPageProps) {
               ['Proof is anchored on Polygon', 'Private documents stay off-chain while proof hashes and lifecycle events become verifiable receipts.'],
               ['Receivable becomes finance-ready', 'The verified invoice becomes a tokenized receivable available for financier review.'],
               ['Smart LC settles with stablecoins', 'Escrow releases funds only when agreed delivery and proof conditions are satisfied.'],
-            ].map(([t, b], i) => (
-              <div key={t} className="process-step"><div className="process-num">{i + 1}</div><div><strong>{t}</strong><span>{b}</span></div></div>
+            ].map(([title, body], i) => (
+              <div key={title} className="process-step">
+                <div className="process-num">{i + 1}</div>
+                <div><strong>{title}</strong><span>{body}</span></div>
+              </div>
             ))}
           </div>
         </div>
       </section>
 
-      <div id="solution" />
+      <div id="solution" className="scroll-anchor" />
       <section className="infra-section">
         <div className="infra-copy">
           <div className="tag">Verify trade</div>
@@ -140,7 +157,7 @@ export default function LandingPage({ onSignIn, onSignUp }: LandingPageProps) {
         </div>
       </section>
 
-      <div id="polygon" />
+      <div id="polygon" className="scroll-anchor" />
       <section className="infra-section reverse">
         <div className="infra-copy">
           <div className="tag">Anchor on Polygon</div>
@@ -156,7 +173,7 @@ export default function LandingPage({ onSignIn, onSignUp }: LandingPageProps) {
           <div className="receipt-card">
             <small>Polygon proof receipt</small>
             <strong>Proof anchored</strong>
-            <code>Network: Polygon Amoy · Chain ID: 80002<br />Tx: 0x7f3a9e2b4c8f01aa...ab24c</code>
+            <code>Network: Polygon Amoy · Chain ID: 80002{'\n'}Tx: 0x7f3a9e2b4c8f01aa...ab24c</code>
           </div>
           <div className="visual-list">
             <div className="visual-row"><div className="vicon">◎</div><div><strong>ProofRegistry</strong><span>Invoice + delivery bundle hash</span></div><span className="pill indigo">On-chain</span></div>
@@ -185,8 +202,7 @@ export default function LandingPage({ onSignIn, onSignUp }: LandingPageProps) {
         </div>
       </section>
 
-      <div id="developers" />
-      <section className="infra-section reverse">
+      <section className="infra-section reverse" id="developers">
         <div className="infra-copy">
           <div className="tag">Developer infrastructure</div>
           <h2>APIs and webhooks for fintechs, lenders, and trade platforms.</h2>
@@ -197,7 +213,7 @@ export default function LandingPage({ onSignIn, onSignUp }: LandingPageProps) {
             <div className="infra-point">Polygon transaction references exposed to enterprise systems</div>
           </div>
         </div>
-        <div className="infra-visual" style={{ padding: 0, background: 'transparent', border: 0, boxShadow: 'none', minHeight: 0 }}>
+        <div className="infra-visual code-visual">
           <div className="code-window">
             <div className="code-top"><span className="code-dot" /><span className="code-dot" /><span className="code-dot" /></div>
             <pre>{`POST /api/v1/proofs/anchor
@@ -216,7 +232,7 @@ GET /api/v1/businesses/acme/trade-credit-score`}</pre>
         <div className="reliability-inner">
           <div>
             <h2>Built for enterprise reliability and auditability.</h2>
-            <p>Credara is not only a workflow tool. It is an operational layer with relayers, indexers, outbox jobs, audit trails, and compliance controls.</p>
+            <p>The UI should show that Credara is not only a workflow tool. It is an operational layer with relayers, indexers, outbox jobs, audit trails, and compliance controls.</p>
           </div>
           <div className="health-grid">
             <div className="health-card"><strong>Relayer outbox</strong><span>Retries failed Polygon writes safely</span></div>
@@ -227,9 +243,9 @@ GET /api/v1/businesses/acme/trade-credit-score`}</pre>
         </div>
       </section>
 
-      <div id="uae" />
-      <section className="landing-usecase">
-        <div className="landing-usecase-inner">
+      <div id="audience" className="scroll-anchor" />
+      <section className="landing-usecase usecase-section">
+        <div className="landing-usecase-inner usecase-inner">
           <div>
             <h2>UAE corridor use case: Jebel Ali supplier financing.</h2>
             <p>A verified SME supplier delivers goods to a buyer, anchors proof on Polygon, tokenizes the receivable, and receives a finance offer before the buyer&apos;s payment term expires.</p>
@@ -252,12 +268,20 @@ GET /api/v1/businesses/acme/trade-credit-score`}</pre>
 
       <section className="landing-final">
         <div className="landing-final-inner">
-          <div><h2>Build on real API data</h2><p>Sign up to create orders, invoices, payment intents, and settlement ledger rows — backed by Postgres, not demo seed data.</p></div>
-          <button type="button" className="btn dark" onClick={onSignUp}>Get started</button>
+          <div>
+            <h2>See the enterprise workflow in action.</h2>
+            <p>Open the demo workspace to create an invoice, confirm delivery, anchor proof on Polygon, create a receivable, approve financing, and release a Smart LC settlement.</p>
+          </div>
+          <button type="button" className="btn dark" onClick={onSignUp}>Open demo workspace</button>
         </div>
       </section>
 
-      <footer className="landing-footer">© 2026 Credara · Enterprise trade finance infrastructure on Polygon</footer>
+      <footer className="landing-footer footer">
+        <div className="footer-inner">
+          <span>© 2026 Credara. Enterprise trade finance infrastructure.</span>
+          <span>Landing → Sign-in → Role-based workspace</span>
+        </div>
+      </footer>
     </div>
   );
 }

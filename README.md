@@ -35,20 +35,32 @@ bash scripts/dev-local.sh web   # terminal 2
 
 Or with Docker: `make dev`
 
-### Production deploy
+### Production deploy (Vercel)
 
-On the server (`credara.nov-tia.com`):
+Use these projects (not the legacy stuck `credara` project):
 
-```bash
-git pull origin main
-cp .env.example .env   # first time only — set real secrets
-make deploy-production
-```
+| App | Vercel project | Root directory | URL |
+|-----|----------------|----------------|-----|
+| Web | `credara-jet` | `apps/web` | https://credara-jet.vercel.app/ |
+| API | `credara-api` | `apps/api` | https://credara-api.vercel.app/ |
 
-Public URL: https://credara.nov-tia.com/
+API health: https://credara-api.vercel.app/health  
+API docs: https://credara-api.vercel.app/docs  
 
-API docs: http://localhost:8000/docs  
-Web app: http://localhost:3000
+**Auth0 (required for OAuth):** Allowed Callback URL  
+`https://credara-api.vercel.app/api/v1/auth/oauth/callback`  
+Allowed Logout/App URLs: `https://credara-jet.vercel.app`
+
+**Production notes:**
+- Demo `/api/v1/payments/*` routers are **disabled** when `ENVIRONMENT=production` (use `/api/v1/real/*`).
+- Set `CRON_SECRET` on the API project so Vercel Cron can drain the blockchain outbox (Hobby: once daily at 12:00 UTC; Pro: raise frequency in `apps/api/vercel.json`). External cron may POST/GET `/api/v1/internal/relayer/drain` with `Authorization: Bearer $CRON_SECRET`.
+- KYB: set `KYB_PROVIDER=didit` with Didit credentials, or explicitly `ALLOW_MOCK_KYB=true` for sandbox.
+- Smoke test: `python scripts/e2e_production_smoke.py`
+
+Local Docker (optional): `make deploy-production`
+
+API docs (local): http://localhost:8000/docs  
+Web app (local): http://localhost:3000
 
 ## Local development without Docker
 

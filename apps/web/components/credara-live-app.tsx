@@ -499,12 +499,13 @@ function useCredaraApp(startInWorkspace: boolean, initialAuthMode: 'signin' | 's
         notify('No payment intent', 'Create one first.');
         return null;
       }
-      await realApi.submitPaymentIntent(latest.id, { tx_hash: `0xui${Date.now().toString(16)}`, confirmations: 1 });
+      // Submit without fabricating a chain hash — backend/relayer records real or pending tx state.
+      await realApi.submitPaymentIntent(latest.id, { confirmations: 1 });
       const confirmed = await realApi.confirmPaymentIntent(latest.id, { confirmations: 3, on_chain_amount: latest.amount });
       setState((current) => ({
         ...current,
         paymentIntents: current.paymentIntents.map((p) =>
-          p.id === latest.id ? { ...p, status: titleCase(String(confirmed.status)), confirmations: Number(confirmed.confirmations), tx: String(confirmed.tx_hash || 'confirmed on backend') } : p,
+          p.id === latest.id ? { ...p, status: titleCase(String(confirmed.status)), confirmations: Number(confirmed.confirmations), tx: String(confirmed.tx_hash || 'pending on-chain confirmation') } : p,
         ),
       }));
       await refreshLedger();

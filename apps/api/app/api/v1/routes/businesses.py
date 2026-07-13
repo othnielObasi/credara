@@ -11,7 +11,7 @@ from app.services.audit import record_audit
 router = APIRouter()
 
 @router.post('', response_model=BusinessRead)
-def create_business(payload: BusinessCreate, idempotency_key: str | None = Header(None), db: Session = Depends(get_db), user: User = Depends(require_roles(Role.SME, Role.ADMIN))):
+def create_business(payload: BusinessCreate, idempotency_key: str | None = Header(None), db: Session = Depends(get_db), user: User = Depends(require_roles(Role.SME, Role.BUYER, Role.FINANCIER, Role.ADMIN))):
     assert_idempotent(db, idempotency_key, 'create_business')
     business = Business(owner_user_id=user.id, **payload.model_dump())
     db.add(business)
