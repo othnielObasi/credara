@@ -1,12 +1,22 @@
 from functools import lru_cache
+from pathlib import Path
 from typing import Annotated
 
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
+# Load monorepo root `.env` even when the API is started from `apps/api`.
+_API_DIR = Path(__file__).resolve().parents[2]
+_REPO_ROOT = Path(__file__).resolve().parents[4]
+_ENV_FILES = (
+    str(_REPO_ROOT / '.env'),
+    str(_API_DIR / '.env'),
+    '.env',
+)
+
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file='.env', env_file_encoding='utf-8', extra='ignore')
+    model_config = SettingsConfigDict(env_file=_ENV_FILES, env_file_encoding='utf-8', extra='ignore')
 
     environment: str = 'local'
     project_name: str = 'Credara Enterprise'

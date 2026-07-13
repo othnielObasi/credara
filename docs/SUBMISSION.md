@@ -1,8 +1,46 @@
 # Credara — Smart Commerce Infrastructure Challenge Submission
 
+**Challenge:** Smart Commerce Infrastructure — Polygon · DIFC · UAE stablecoin & payments  
+**Submit by:** 13 July 2026 · **Demo Day:** Dubai, mid–late September 2026  
+**Live demo:** [credara-jet.vercel.app/workspace](https://credara-jet.vercel.app/workspace) · API: [credara-api.vercel.app/docs](https://credara-api.vercel.app/docs)  
+**Pitch deck (judges):** [Credara_Pitch_Deck.pptx](Credara_Pitch_Deck.pptx)
+
 **Positioning (locked):** Credara is Polygon-native SME trade-finance infrastructure for the UAE corridor: buyer-confirmed invoices and delivery proofs become finance-ready receivables, settled via Smart LC stablecoin escrow. This is **B2B trade settlement**, not remittance, POS, or a consumer wallet.
 
-**Live demo:** [credara-jet.vercel.app/workspace](https://credara-jet.vercel.app/workspace) · API: [credara-api.vercel.app/docs](https://credara-api.vercel.app/docs)
+---
+
+## Challenge alignment
+
+The brief offers two problem tracks. Credara **directly solves Problem 1 — SME Trade Finance Is Broken** and uses the UAE macro context (USD 50B+ corridor payments, **CBUAE PTSR** live, **51.3%** stablecoin share of crypto activity) as **market tailwind**, not as a claim to build retail remittance or merchant POS.
+
+| Hackathon asks (Problem 1) | Credara delivery |
+|----------------------------|------------------|
+| Tokenized receivables on Polygon | `ReceivableRegistry` + buyer-confirmed invoice → finance-ready receivable in four-role workspaces |
+| Smart contract–based letters of credit | `SmartLCFactory` / `SmartLC` — create → fund → verify delivery → release / dispute / refund |
+| On-chain trade credit scoring | `CreditScoreAttestation` + scoring workers; attestations tied to trade history |
+| Reduce LC friction for UAE SMEs | Judge Mode demo: 7–10 day manual LC → same-day proof-to-funding path; Jebel Ali corridor wedge |
+
+**Problem 2 (merchant POS / tourist wallets)** is intentionally out of scope for this MVP. Credara is **settlement-ready** for PTSR-compliant AED stablecoins on Smart LC rails; POS/remittance products can integrate the same proof and escrow APIs later.
+
+### Judging criteria mapping
+
+| Criterion | How Credara scores |
+|-----------|-------------------|
+| **Innovation** | Programmable Smart LC + proof anchoring + receivable tokenization in one corridor-native stack; MockUSDC → licensed AED without contract rebuild |
+| **Technical excellence** | Monorepo, Slither CI, Hardhat tests, fail-closed chain writes, AccessControl / Pausable / ReentrancyGuard, outbox relayer, live Vercel deploy |
+| **User experience** | Four enterprise workspaces (SME / Buyer / Financier / Admin), Judge Mode (~3 min guided demo), honest Simulated vs Anchored chain status |
+| **Real-world impact** | Addresses $2T trade-finance gap, ~40% SME rejection, 7–10 day LCs, Jebel Ali 15M+ TEUs — UAE B2B suppliers paid in days not months |
+
+### Submission checklist (Step 1)
+
+| Required item | Section |
+|---------------|---------|
+| Team background and technical credentials | §1 below |
+| Problem statement and target market | §2 |
+| Technical architecture and approach on Polygon | §3 |
+| Launch roadmap and go-to-market strategy | §4 |
+| Revenue model and scalability plan | §5 |
+| MVP / Prototype | §6 |
 
 ---
 

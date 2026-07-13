@@ -133,7 +133,33 @@ def _send(w3, account, tx: dict) -> str:
     signed = account.sign_transaction(tx)
     raw = getattr(signed, 'raw_transaction', None) or signed.rawTransaction
     tx_hash = w3.eth.send_raw_transaction(raw)
-    return tx_hash.hex()
+    h = tx_hash.hex()
+    if not h.startswith('0x'):
+        h = '0x' + h
+    return h
+
+
+def _amoy_gas_fees(w3) -> tuple[int, int]:
+    """Match polygon.publish_tx fee logic — Amoy minimum tip drifts above static gwei."""
+    try:
+        priority_fee = int(w3.eth.max_priority_fee * 1.5)
+    except Exception:
+        priority_fee = w3.to_wei('30', 'gwei')
+    priority_fee = max(priority_fee, w3.to_wei('30', 'gwei'))
+    max_fee = priority_fee + w3.to_wei('30', 'gwei')
+    return max_fee, priority_fee
+
+
+def _tx_base(w3, account, settings, *, nonce: int, gas: int) -> dict:
+    max_fee, priority_fee = _amoy_gas_fees(w3)
+    return {
+        'from': account.address,
+        'nonce': nonce,
+        'chainId': settings.polygon_chain_id,
+        'gas': gas,
+        'maxFeePerGas': max_fee,
+        'maxPriorityFeePerGas': priority_fee,
+    }
 
 
 def _to_token_amount(amount: float, decimals: int = 6) -> int:
@@ -176,16 +202,7 @@ def create_smart_lc_on_chain(*, order_proof_hash: str, amount: float, seller_add
         now + 14 * 24 * 3600,
         3600,
         86400,
-    ).build_transaction(
-        {
-            'from': account.address,
-            'nonce': nonce,
-            'chainId': settings.polygon_chain_id,
-            'gas': 3_500_000,
-            'maxFeePerGas': w3.to_wei('50', 'gwei'),
-            'maxPriorityFeePerGas': w3.to_wei('2', 'gwei'),
-        }
-    )
+    ).build_transaction(_tx_base(w3, account, settings, nonce=nonce, gas=3_500_000))
     tx_hash = _send(w3, account, tx)
     receipt = w3.eth.wait_for_transaction_receipt(tx_hash, timeout=180)
     if receipt.status != 1:
@@ -219,43 +236,20 @@ def fund_smart_lc_on_chain(*, contract_address: str, amount: float) -> dict:
     nonce = w3.eth.get_transaction_count(account.address)
     if balance < token_amount:
         mint_tx = token.functions.mint(account.address, token_amount).build_transaction(
-            {
-                'from': account.address,
-                'nonce': nonce,
-                'chainId': settings.polygon_chain_id,
-                'gas': 120_000,
-                'maxFeePerGas': w3.to_wei('50', 'gwei'),
-                'maxPriorityFeePerGas': w3.to_wei('2', 'gwei'),
-            }
+            _tx_base(w3, account, settings, nonce=nonce, gas=120_000)
         )
         mint_hash = _send(w3, account, mint_tx)
         w3.eth.wait_for_transaction_receipt(mint_hash, timeout=120)
         nonce += 1
 
     approve_tx = token.functions.approve(Web3.to_checksum_address(contract_address), token_amount).build_transaction(
-        {
-            'from': account.address,
-            'nonce': nonce,
-            'chainId': settings.polygon_chain_id,
-            'gas': 80_000,
-            'maxFeePerGas': w3.to_wei('50', 'gwei'),
-            'maxPriorityFeePerGas': w3.to_wei('2', 'gwei'),
-        }
+        _tx_base(w3, account, settings, nonce=nonce, gas=80_000)
     )
     approve_hash = _send(w3, account, approve_tx)
     w3.eth.wait_for_transaction_receipt(approve_hash, timeout=120)
     nonce += 1
 
-    fund_tx = lc.functions.fund().build_transaction(
-        {
-            'from': account.address,
-            'nonce': nonce,
-            'chainId': settings.polygon_chain_id,
-            'gas': 250_000,
-            'maxFeePerGas': w3.to_wei('50', 'gwei'),
-            'maxPriorityFeePerGas': w3.to_wei('2', 'gwei'),
-        }
-    )
+    fund_tx = lc.functions.fund().build_transaction(_tx_base(w3, account, settings, nonce=nonce, gas=250_000))
     fund_hash = _send(w3, account, fund_tx)
     receipt = w3.eth.wait_for_transaction_receipt(fund_hash, timeout=180)
     if receipt.status != 1:
@@ -278,16 +272,7 @@ def release_smart_lc_on_chain(*, contract_address: str, delivery_proof_hash: str
 
     def _build(fn, gas: int):
         nonlocal nonce
-        tx = fn.build_transaction(
-            {
-                'from': account.address,
-                'nonce': nonce,
-                'chainId': settings.polygon_chain_id,
-                'gas': gas,
-                'maxFeePerGas': w3.to_wei('50', 'gwei'),
-                'maxPriorityFeePerGas': w3.to_wei('2', 'gwei'),
-            }
-        )
+        tx = fn.build_transaction(_tx_base(w3, account, settings, nonce=nonce, gas=gas))
         h = _send(w3, account, tx)
         receipt = w3.eth.wait_for_transaction_receipt(h, timeout=180)
         if receipt.status != 1:
