@@ -5,6 +5,8 @@ import LandingPage from './landing/landing-page';
 import { TradeWorkflowPanel, DeliveryProofPanel, ReceivablesPanel, ProofLedgerPage } from './workspace/trade-workflow-panel';
 import { SettingsPanel, InvitationsPanel, BuyerInboxPanel, MarketplacePanel, DealRoomPanel } from './workspace/workspace-panels';
 import { API_BASE, clearAuthSession, loginUser, realApi, registerUser, setAuthSession } from '../lib/api';
+import { financeApi } from '../lib/api/finance';
+import { tradeApi, type Order } from '../lib/api/trade';
 import { fmt, statusTone, titleCase } from '../lib/format';
 
 type Role = 'sme' | 'buyer' | 'financier' | 'admin' | 'developer';
@@ -826,29 +828,81 @@ function PageRenderer({ page, state, app, metrics, switchPage }: { page: PageKey
 }
 
 function Dashboard({ state, metrics, switchPage }: { state: AppState; metrics: ReturnType<typeof getMetrics>; switchPage: (page: PageKey) => void }) {
+  const [score, setScore] = useState<{ score: number; grade: string } | null>(null);
+  const [scoreState, setScoreState] = useState<'idle' | 'loading' | 'ready' | 'unavailable'>('idle');
+  const [latestOrder, setLatestOrder] = useState<Order | null>(null);
+  const businessId = state.businessId;
+  const profileName = (state.settings.profile.name as string) || '';
+
+  useEffect(() => {
+    if (!businessId) return;
+    setScoreState('loading');
+    financeApi.getScore(businessId)
+      .then((r) => { setScore({ score: r.score, grade: r.grade }); setScoreState('ready'); })
+      .catch(() => setScoreState('unavailable'));
+  }, [businessId]);
+
+  useEffect(() => {
+    if (!businessId) { setLatestOrder(null); return; }
+    tradeApi.listOrders({ sellerBusinessId: businessId })
+      .then((orders) => setLatestOrder(orders[orders.length - 1] || null))
+      .catch(() => setLatestOrder(null));
+  }, [businessId]);
+
+  const financeReady = state.escrows.reduce((sum, e) => sum + e.requiredAmount, 0);
   const queue: Array<[string, string, PageKey]> = [
-    ['Create trade order', state.businessId ? 'Ready' : 'Complete onboarding', 'contractDetail'],
+    ['Create trade order', businessId ? 'Ready' : 'Complete onboarding', 'contractDetail'],
     ['Settlement ledger', `${state.ledger.length} rows`, 'settlementLedger'],
     ['Smart LC escrow', state.escrows[0]?.smartLcId || 'None yet', 'settlement'],
   ];
+
   return (
     <div className="page-stack">
-      <Banner />
+      <section className="dashboard-hero">
+        <div className="finance-hero">
+          <span className="pill indigo">Finance-ready</span>
+          <strong>{fmt(financeReady)}</strong>
+          <p>{profileName ? `Good morning, ${profileName}. ` : ''}Buyer-confirmed invoices, verified delivery proof and Polygon receipts feeding your Smart LC settlement.</p>
+          <div className="hero-actions">
+            <button type="button" className="btn" onClick={() => switchPage('settlement')}>Get finance offer</button>
+            <button type="button" className="btn secondary" onClick={() => switchPage('receivables')}>View receivables</button>
+          </div>
+        </div>
+        <div className="score-card">
+          <span className="eyebrow">Trade credit score</span>
+          {scoreState === 'ready' && score ? (
+            <>
+              <div className="score-value">{score.score}<span>/100</span></div>
+              <span className="pill green">Grade {score.grade}</span>
+            </>
+          ) : scoreState === 'loading' ? (
+            <p className="empty-state">Calculating…</p>
+          ) : (
+            <p className="empty-state">Not yet scored — complete a trade to generate a score.</p>
+          )}
+        </div>
+      </section>
       <section className="metric-grid">
         <Metric label="Ledger entries" value={metrics.ledgerCount} helper={fmt(metrics.ledgerValue)} />
         <Metric label="Payment intents" value={metrics.paymentCount} helper={fmt(metrics.paymentValue)} />
         <Metric label="Active escrow" value={metrics.activeCount} helper={fmt(metrics.activeVal)} />
-        <Metric label="Trust score" value={`${metrics.trust}/100`} helper="finance readiness" />
+        <Metric label="Wallets" value={state.wallets.length} helper={state.wallets.length ? 'connected' : 'none yet'} />
       </section>
       <section className="two-grid">
-        <Panel title="Priority queue" action={<button className="btn secondary small" onClick={() => switchPage('contractDetail')}>Trade</button>}>
-          <ActionRows rows={queue} switchPage={switchPage} />
+        <Panel title="Live trade" action={<button className="btn secondary small" onClick={() => switchPage('contractDetail')}>Trade</button>}>
+          {latestOrder ? (
+            <>
+              <Detail label="Buyer" value={latestOrder.buyer_name} />
+              <Detail label="Amount" value={fmt(latestOrder.total_amount)} />
+              <Detail label="Status" value={titleCase(latestOrder.status)} />
+              <button className="btn secondary full" onClick={() => switchPage('contractDetail')}>Open contract</button>
+            </>
+          ) : (
+            <p className="empty-state">No trades yet. Create your first order to get started.</p>
+          )}
         </Panel>
-        <Panel title="Settlement snapshot">
-          <Detail label="Escrow" value={state.escrows[0]?.smartLcId || 'No escrow'} />
-          <Detail label="Status" value={state.escrows[0]?.status || 'Pending'} />
-          <Detail label="Funded" value={fmt(state.escrows[0]?.fundedAmount || 0)} />
-          <button className="btn secondary full" onClick={() => switchPage('settlement')}>Open settlement</button>
+        <Panel title="Priority queue">
+          <ActionRows rows={queue} switchPage={switchPage} />
         </Panel>
       </section>
     </div>
@@ -962,10 +1016,6 @@ function getMetrics(state: AppState) {
     activeVal: activeEscrows.reduce((sum, e) => sum + e.fundedAmount, 0),
     trust,
   };
-}
-
-function Banner() {
-  return <div className="soft-banner"><div className="mark">UAE</div><div><strong>Polygon-powered SME trade finance</strong><span>Tokenized receivables, smart contract LCs, on-chain trade credit scoring and stablecoin settlement readiness.</span></div></div>;
 }
 
 function PageIntro({ title, body }: { title: string; body: string }) {

@@ -70,6 +70,34 @@ export default function LandingPage({ onSignIn, onSignUp }: LandingPageProps) {
         </div>
       </section>
 
+      <section className="architecture-section">
+        <div className="scale-kicker">Product architecture</div>
+        <h2>One shared trust layer. Four connected workspaces.</h2>
+        <p>Each party works in their own space but acts on the same verified record — so no one re-checks anyone else&apos;s paperwork.</p>
+        <div className="architecture-grid">
+          <div className="architecture-card">
+            <small className="eyebrow">SME raises</small>
+            <strong>SME Workspace</strong>
+            <p>Orders, invoices, delivery proof, receivables, finance readiness and trust/credit scoring.</p>
+          </div>
+          <div className="architecture-card">
+            <small className="eyebrow">Buyer confirms</small>
+            <strong>Buyer Workspace</strong>
+            <p>Supplier verification, invoice confirmation, delivery confirmation, and dispute handling.</p>
+          </div>
+          <div className="architecture-card">
+            <small className="eyebrow">Financier funds</small>
+            <strong>Financier Workspace</strong>
+            <p>Verified receivables, credit score, financing offers, Smart LC funding and repayment tracking.</p>
+          </div>
+          <div className="architecture-card">
+            <small className="eyebrow">Admin audits</small>
+            <strong>Admin / Risk Workspace</strong>
+            <p>KYB review, suspicious proof review, dispute resolution and full audit trail.</p>
+          </div>
+        </div>
+      </section>
+
       <div id="workflow" />
       <section className="process-panel">
         <div className="process-inner">
