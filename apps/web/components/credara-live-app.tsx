@@ -734,6 +734,7 @@ export default function CredaraLiveApp({ startInWorkspace = false, initialAuthMo
             <div className="tenant-card"><div className="tenant-avatar">{workspaceName.split(' ').slice(0, 2).map((w) => w[0]).join('') || 'CR'}</div><div><strong>{workspaceName}</strong><span>{workspaceLabel}</span></div></div>
             <select
               className="role-select"
+              aria-label="Workspace role"
               value={state.role}
               onChange={(e) => {
                 const role = e.target.value as Role;
@@ -745,7 +746,13 @@ export default function CredaraLiveApp({ startInWorkspace = false, initialAuthMo
               {Object.keys(personas).map((role) => <option key={role} value={role}>{titleCase(role)}</option>)}
             </select>
             <label className="judge-mode-toggle">
-              <input type="checkbox" checked={judgeMode} onChange={(e) => {
+              <input
+                type="checkbox"
+                role="switch"
+                aria-checked={judgeMode}
+                aria-describedby="judge-mode-help"
+                checked={judgeMode}
+                onChange={(e) => {
                 const next = e.target.checked;
                 setJudgeMode(next);
                 const nextPages = next ? judgeAllowed[state.role] : roleAllowed[state.role];
@@ -757,12 +764,21 @@ export default function CredaraLiveApp({ startInWorkspace = false, initialAuthMo
               }} />
               <span>Judge demo mode</span>
             </label>
-            <nav className="nav-stack">
+            <p id="judge-mode-help" className="sr-only">Limits navigation to the invoice, proof, finance, and Smart LC demo path.</p>
+            <nav className="nav-stack" aria-label="Workspace">
               {visibleNavGroups.map((group) => (
                 <div key={group.title} className="nav-group">
                   <p>{group.title}</p>
                   {group.pages.map((page) => (
-                    <button key={page.key} className={`nav-item ${activePage === page.key ? 'active' : ''}`} onClick={() => switchPage(page.key)}>{page.label}</button>
+                    <button
+                      key={page.key}
+                      type="button"
+                      className={`nav-item ${activePage === page.key ? 'active' : ''}`}
+                      aria-current={activePage === page.key ? 'page' : undefined}
+                      onClick={() => switchPage(page.key)}
+                    >
+                      {page.label}
+                    </button>
                   ))}
                 </div>
               ))}
@@ -778,15 +794,21 @@ export default function CredaraLiveApp({ startInWorkspace = false, initialAuthMo
               </div>
             </header>
             {judgeMode && (
-              <section className="soft-banner judge-progress">
-                <div className="mark">Demo</div>
+              <section className="soft-banner judge-progress" aria-label="Judge demo progress">
+                <div className="mark" aria-hidden="true">Demo</div>
                 <div>
                   <strong>Judge path · invoice → proof → finance → Smart LC</strong>
-                  <span>
+                  <ol className="judge-steps">
                     {judgeSteps.map((step, index) => (
-                      <span key={step.label} className={index === activeJudgeStep ? 'judge-step active' : 'judge-step'}>{step.label}{index < judgeSteps.length - 1 ? '  →  ' : ''}</span>
+                      <li
+                        key={step.label}
+                        className={index === activeJudgeStep ? 'judge-step active' : 'judge-step'}
+                        aria-current={index === activeJudgeStep ? 'step' : undefined}
+                      >
+                        {step.label}
+                      </li>
                     ))}
-                  </span>
+                  </ol>
                 </div>
               </section>
             )}
@@ -803,14 +825,14 @@ function AuthOverlay({ app }: { app: ReturnType<typeof useCredaraApp> }) {
   const { state, authForm, setAuthForm } = app;
   const isSignup = state.authMode === 'signup';
   return (
-    <div className="auth-overlay" role="dialog" aria-modal="true">
+    <div className="auth-overlay" role="dialog" aria-modal="true" aria-labelledby="auth-dialog-title">
       <form className="auth-card" onSubmit={isSignup ? app.signUp : app.signIn}>
         <div className="auth-tabs">
           <button type="button" className={isSignup ? 'active' : ''} onClick={() => app.setState((c) => ({ ...c, authMode: 'signup' }))}>Sign up</button>
           <button type="button" className={!isSignup ? 'active' : ''} onClick={() => app.setState((c) => ({ ...c, authMode: 'signin' }))}>Sign in</button>
           <button type="button" className="btn ghost small" onClick={() => app.setShowAuth(false)} aria-label="Close">×</button>
         </div>
-        <h2>{isSignup ? 'Create workspace' : 'Sign in'}</h2>
+        <h2 id="auth-dialog-title">{isSignup ? 'Create workspace' : 'Sign in'}</h2>
         {isSignup && (
           <>
             <label>Full name<input value={authForm.fullName} onChange={(e) => setAuthForm({ ...authForm, fullName: e.target.value })} /></label>
@@ -829,7 +851,18 @@ function AuthOverlay({ app }: { app: ReturnType<typeof useCredaraApp> }) {
 }
 
 function LiveBar({ state, onConnect }: { state: AppState; onConnect: () => void }) {
-  return <div className="live-bar"><div><strong><span className={`live-dot ${state.connected ? 'connected' : state.error ? 'failed' : ''}`} />{state.connected ? 'Persistent backend connected' : state.token ? 'Backend not connected' : 'Sign in required for live data'}</strong><span>{state.connected ? `Last sync ${state.lastSync}` : state.error || 'Live actions require an authenticated workspace.'}</span></div><button className="btn secondary small" onClick={onConnect}>Connect</button></div>;
+  return (
+    <div className="live-bar">
+      <div>
+        <strong>
+          <span className={`live-dot ${state.connected ? 'connected' : state.error ? 'failed' : ''}`} aria-hidden="true" />
+          {state.connected ? 'Persistent backend connected' : state.token ? 'Backend not connected' : 'Sign in required for live data'}
+        </strong>
+        <span>{state.connected ? `Last sync ${state.lastSync}` : state.error || 'Live actions require an authenticated workspace.'}</span>
+      </div>
+      <button className="btn secondary small" onClick={onConnect}>Connect</button>
+    </div>
+  );
 }
 
 function PageRenderer({ page, state, app, metrics, switchPage }: { page: PageKey; state: AppState; app: ReturnType<typeof useCredaraApp>; metrics: ReturnType<typeof getMetrics>; switchPage: (page: PageKey) => void }) {
@@ -1111,5 +1144,5 @@ function ActionRows({ rows, switchPage }: { rows: Array<[string, string, PageKey
 
 function toastView(toast: { title: string; message?: string } | null) {
   if (!toast) return null;
-  return <div className="toast"><strong>{toast.title}</strong>{toast.message && <span>{toast.message}</span>}</div>;
+  return <div className="toast" role="status" aria-live="polite"><strong>{toast.title}</strong>{toast.message && <span>{toast.message}</span>}</div>;
 }

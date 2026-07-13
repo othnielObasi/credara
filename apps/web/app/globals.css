@@ -236,6 +236,14 @@ pre {
   box-shadow: 0 14px 24px rgba(49, 87, 255, 0.2);
 }
 
+.btn:focus-visible,
+.nav-item:focus-visible,
+.judge-mode-toggle input:focus-visible,
+.role-select:focus-visible {
+  outline: 2px solid var(--indigo);
+  outline-offset: 2px;
+}
+
 .btn.secondary {
   border-color: #cdd6e4;
   background: #fff;
@@ -339,14 +347,42 @@ pre {
   accent-color: var(--indigo);
 }
 
+.judge-progress .judge-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
 .judge-progress .judge-step {
-  opacity: 0.55;
+  color: #475467;
+  font-weight: 700;
+}
+
+.judge-progress .judge-step:not(:last-child)::after {
+  content: '→';
+  margin-left: 10px;
+  color: #98a2b3;
+  font-weight: 600;
 }
 
 .judge-progress .judge-step.active {
-  opacity: 1;
   color: var(--indigo);
   font-weight: 850;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .nav-stack {
@@ -493,12 +529,16 @@ pre {
 }
 
 .soft-banner strong,
-.soft-banner span {
+.soft-banner > div > span {
   display: block;
 }
 
-.soft-banner span {
+.soft-banner > div > span {
   margin-top: 4px;
+}
+
+.soft-banner.judge-progress strong {
+  display: block;
 }
 
 .dashboard-hero {
@@ -955,6 +995,12 @@ label select {
     height: auto;
   }
 
+  .sidebar .nav-stack {
+    max-height: 220px;
+    overflow: auto;
+    padding-right: 4px;
+  }
+
   .nav-stack {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -969,9 +1015,17 @@ label select {
   .public-nav,
   .topbar,
   .live-bar,
-  .soft-banner {
+  .soft-banner:not(.judge-progress) {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .judge-progress {
+    align-items: flex-start;
+  }
+
+  .sidebar .nav-stack {
+    max-height: 160px;
   }
 
   .metric-grid,

@@ -246,7 +246,7 @@ export function TradeWorkflowPanel({ businessId, businessName, apiRole, onNotify
           {buyerOrders.length === 0 ? (
             <p className="empty-state">No orders awaiting buyer confirmation.</p>
           ) : (
-            <table><thead><tr><th>Buyer</th><th>Amount</th><th>Status</th><th /></tr></thead><tbody>
+            <div className="table-wrap"><table><thead><tr><th>Buyer</th><th>Amount</th><th>Status</th><th /></tr></thead><tbody>
               {buyerOrders.map((o) => (
                 <tr key={o.id}>
                   <td>{o.buyer_name}</td>
@@ -261,7 +261,7 @@ export function TradeWorkflowPanel({ businessId, businessName, apiRole, onNotify
                   </td>
                 </tr>
               ))}
-            </tbody></table>
+            </tbody></table></div>
           )}
         </section>
       )}
@@ -271,7 +271,7 @@ export function TradeWorkflowPanel({ businessId, businessName, apiRole, onNotify
           <div className="table-panel">
             <div className="panel-head"><strong>Orders</strong><span>{orders.length}</span></div>
             {orders.length === 0 ? <p className="empty-state">No orders yet.</p> : (
-              <table><thead><tr><th>Buyer</th><th>Amount</th><th>Status</th><th /></tr></thead><tbody>
+              <div className="table-wrap"><table><thead><tr><th>Buyer</th><th>Amount</th><th>Status</th><th /></tr></thead><tbody>
                 {orders.map((o) => (
                   <tr key={o.id}>
                     <td>{o.buyer_name}</td>
@@ -283,13 +283,13 @@ export function TradeWorkflowPanel({ businessId, businessName, apiRole, onNotify
                     </td>
                   </tr>
                 ))}
-              </tbody></table>
+              </tbody></table></div>
             )}
           </div>
           <div className="table-panel">
             <div className="panel-head"><strong>Invoices</strong><span>{invoices.length}</span></div>
             {invoices.length === 0 ? <p className="empty-state">Issue an invoice from an order.</p> : (
-              <table><thead><tr><th>Number</th><th>Amount</th><th>Status</th><th /></tr></thead><tbody>
+              <div className="table-wrap"><table><thead><tr><th>Number</th><th>Amount</th><th>Status</th><th /></tr></thead><tbody>
                 {invoices.map((i) => (
                   <tr key={i.id}>
                     <td>{i.invoice_number}</td>
@@ -303,7 +303,7 @@ export function TradeWorkflowPanel({ businessId, businessName, apiRole, onNotify
                     </td>
                   </tr>
                 ))}
-              </tbody></table>
+              </tbody></table></div>
             )}
           </div>
         </section>
@@ -312,7 +312,7 @@ export function TradeWorkflowPanel({ businessId, businessName, apiRole, onNotify
       {isBuyer && invoices.length > 0 && (
         <section className="panel">
           <h3>3 · Confirm invoice (Buyer)</h3>
-          <table><thead><tr><th>Number</th><th>Amount</th><th>Status</th><th /></tr></thead><tbody>
+          <div className="table-wrap"><table><thead><tr><th>Number</th><th>Amount</th><th>Status</th><th /></tr></thead><tbody>
             {invoices.map((i) => (
               <tr key={i.id}>
                 <td>{i.invoice_number}</td>
@@ -327,7 +327,7 @@ export function TradeWorkflowPanel({ businessId, businessName, apiRole, onNotify
                 </td>
               </tr>
             ))}
-          </tbody></table>
+          </tbody></table></div>
         </section>
       )}
 
@@ -335,9 +335,9 @@ export function TradeWorkflowPanel({ businessId, businessName, apiRole, onNotify
         <div className="table-panel">
           <div className="panel-head"><strong>Delivery proofs</strong><span>{proofs.length}</span></div>
           {proofs.length === 0 ? <p className="empty-state">Submit delivery proof from an order.</p> : (
-            <table><thead><tr><th>Order</th><th>Score</th><th>Status</th></tr></thead><tbody>
+            <div className="table-wrap"><table><thead><tr><th>Order</th><th>Score</th><th>Status</th></tr></thead><tbody>
               {proofs.map((p) => <tr key={p.id}><td>{p.order_id.slice(0, 8)}…</td><td>{p.confidence_score}%</td><td>{titleCase(p.status)}</td></tr>)}
-            </tbody></table>
+            </tbody></table></div>
           )}
         </div>
         <div className="table-panel">
@@ -345,9 +345,9 @@ export function TradeWorkflowPanel({ businessId, businessName, apiRole, onNotify
           {receivables.length === 0 ? (
             <p className="empty-state">{confirmedInvoices.length ? 'Tokenize a confirmed invoice.' : 'Buyer must confirm invoice first.'}</p>
           ) : (
-            <table><thead><tr><th>Debtor</th><th>Face value</th><th>Status</th></tr></thead><tbody>
+            <div className="table-wrap"><table><thead><tr><th>Debtor</th><th>Face value</th><th>Status</th></tr></thead><tbody>
               {receivables.map((r) => <tr key={r.id}><td>{r.debtor_name}</td><td>{fmt(r.face_value, '')}</td><td>{titleCase(r.status)}</td></tr>)}
-            </tbody></table>
+            </tbody></table></div>
           )}
         </div>
       </section>
@@ -400,20 +400,20 @@ export function DeliveryProofPanel({ businessId, apiRole, onNotify }: Omit<Props
         <h3>Delivery proof</h3>
         <p style={{ color: 'var(--muted)' }}>OTP + GPS + buyer confirmation metadata for Jebel Ali corridor demo.</p>
         {orders.length === 0 ? <p className="empty-state">Create a trade order first.</p> : (
-          <table><thead><tr><th>Buyer</th><th>Status</th><th /></tr></thead><tbody>
+          <div className="table-wrap"><table><thead><tr><th>Buyer</th><th>Status</th><th /></tr></thead><tbody>
             {orders.map((o) => (
               <tr key={o.id}><td>{o.buyer_name}</td><td>{titleCase(o.status)}</td>
                 <td><button type="button" className="btn small" disabled={loading} onClick={() => submit(o)}>Submit proof</button></td></tr>
             ))}
-          </tbody></table>
+          </tbody></table></div>
         )}
       </section>
       {proofs.length > 0 && (
         <section className="table-panel">
           <strong>Latest proofs</strong>
-          <table><thead><tr><th>Score</th><th>Status</th><th>Hash</th></tr></thead><tbody>
+          <div className="table-wrap"><table><thead><tr><th>Score</th><th>Status</th><th>Hash</th></tr></thead><tbody>
             {proofs.map((p) => <tr key={p.id}><td>{p.confidence_score}%</td><td>{titleCase(p.status)}</td><td><code>{p.proof_hash?.slice(0, 16)}…</code></td></tr>)}
-          </tbody></table>
+          </tbody></table></div>
         </section>
       )}
     </div>
@@ -462,22 +462,22 @@ export function ReceivablesPanel({ businessId, apiRole, onNotify }: Omit<Props, 
       <section className="table-panel">
         <div className="panel-head"><strong>Tokenized receivables</strong><span>{receivables.length}</span></div>
         {receivables.length === 0 ? <p className="empty-state">No receivables yet.</p> : (
-          <table><thead><tr><th>Debtor</th><th>Face value</th><th>Status</th><th>Proof</th></tr></thead><tbody>
+          <div className="table-wrap"><table><thead><tr><th>Debtor</th><th>Face value</th><th>Status</th><th>Proof</th></tr></thead><tbody>
             {receivables.map((r) => (
               <tr key={r.id}><td>{r.debtor_name}</td><td>{fmt(r.face_value, '')}</td><td>{titleCase(r.status)}</td><td><code>{r.proof_hash.slice(0, 12)}…</code></td></tr>
             ))}
-          </tbody></table>
+          </tbody></table></div>
         )}
       </section>
       <section className="panel">
         <h3>Create from confirmed invoice</h3>
         {confirmed.length === 0 ? <p className="empty-state">Buyer must confirm an invoice first.</p> : (
-          <table><thead><tr><th>Invoice</th><th>Amount</th><th /></tr></thead><tbody>
+          <div className="table-wrap"><table><thead><tr><th>Invoice</th><th>Amount</th><th /></tr></thead><tbody>
             {confirmed.map((i) => (
               <tr key={i.id}><td>{i.invoice_number}</td><td>{fmt(i.amount, '')}</td>
                 <td><button type="button" className="btn small" disabled={loading} onClick={() => create(i)}>Tokenize</button></td></tr>
             ))}
-          </tbody></table>
+          </tbody></table></div>
         )}
       </section>
     </div>
@@ -523,7 +523,7 @@ export function ProofLedgerPage({ onNotify }: { onNotify: (title: string, messag
           <button type="button" className="btn secondary small" disabled={loading} onClick={refresh}>Refresh</button>
         </div>
         {bundles.length === 0 ? <p className="empty-state">No proof bundles yet. Complete a trade workflow step first.</p> : (
-          <table><thead><tr><th>Type</th><th>Hash</th><th>Status</th><th>Tx</th><th /></tr></thead><tbody>
+          <div className="table-wrap"><table><thead><tr><th>Type</th><th>Hash</th><th>Status</th><th>Tx</th><th /></tr></thead><tbody>
             {bundles.map((b) => (
               <tr key={b.id}>
                 <td>{b.bundle_type}</td>
@@ -533,7 +533,7 @@ export function ProofLedgerPage({ onNotify }: { onNotify: (title: string, messag
                 <td>{!b.on_chain ? <button type="button" className="btn small" disabled={loading} onClick={() => anchor(b.id)}>Anchor</button> : null}</td>
               </tr>
             ))}
-          </tbody></table>
+          </tbody></table></div>
         )}
       </section>
     </div>
