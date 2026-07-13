@@ -1165,3 +1165,75 @@ label select {
     flex: 1;
   }
 }
+
+.demo-entry {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 28px 22px 48px;
+}
+
+.demo-entry-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.demo-entry-hero {
+  padding: 28px;
+  margin-bottom: 20px;
+}
+
+.demo-entry-hero h1 {
+  margin: 14px 0 0;
+  font-size: clamp(28px, 5vw, 38px);
+  line-height: 1.08;
+  letter-spacing: -0.04em;
+}
+
+.demo-entry-lead {
+  margin: 16px 0 0;
+  color: #46566c;
+  font-size: 16px;
+  line-height: 1.65;
+}
+
+.demo-entry-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.demo-entry-hint {
+  margin: 18px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.demo-entry-hint a {
+  color: var(--blue);
+  font-weight: 700;
+}
+
+.demo-entry-steps {
+  padding: 24px 28px;
+}
+
+.demo-entry-steps h2 {
+  margin: 0 0 16px;
+  font-size: 20px;
+  letter-spacing: -0.03em;
+}
+
+.demo-entry-step-list {
+  margin: 0;
+  padding-left: 22px;
+  display: grid;
+  gap: 12px;
+  color: #344054;
+  font-size: 15px;
+  line-height: 1.55;
+}

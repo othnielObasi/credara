@@ -2,6 +2,7 @@
 
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
 import LandingPage from './landing/landing-page';
+import DemoEntryPage from './landing/demo-entry-page';
 import { TradeWorkflowPanel, DeliveryProofPanel, ReceivablesPanel, ProofLedgerPage } from './workspace/trade-workflow-panel';
 import { SettingsPanel, InvitationsPanel, BuyerInboxPanel, MarketplacePanel, DealRoomPanel } from './workspace/workspace-panels';
 import { clearAuthSession, loginUser, OAUTH_LOGIN_URL, realApi, registerUser, setAuthSession } from '../lib/api';
@@ -263,7 +264,7 @@ function useCredaraApp(startInWorkspace: boolean, initialAuthMode: 'signin' | 's
   const [state, setState] = useState<AppState>({ ...initialState, page: startInWorkspace ? 'dashboard' : 'dashboard', authMode: initialAuthMode });
   const [toast, setToast] = useState<{ title: string; message?: string } | null>(null);
   const [authForm, setAuthForm] = useState(emptyAuthForm);
-  const [showAuth, setShowAuth] = useState(initialAuthMode === 'signin');
+  const [showAuth, setShowAuth] = useState(startInWorkspace || initialAuthMode === 'signin');
   const [hasMounted, setHasMounted] = useState(false);
 
   const notify = (title: string, message?: string) => {
@@ -403,6 +404,12 @@ function useCredaraApp(startInWorkspace: boolean, initialAuthMode: 'signin' | 's
     await loadOperationalState(state.workspaceId || undefined);
   }
 
+  function redirectToWorkspaceIfNeeded() {
+    if (typeof window !== 'undefined' && window.location.pathname !== '/workspace') {
+      window.location.replace('/workspace');
+    }
+  }
+
   async function signUp(event: FormEvent) {
     event.preventDefault();
     if (authForm.password.length < 8) return notify('Password required', 'Use at least 8 characters.');
@@ -418,6 +425,7 @@ function useCredaraApp(startInWorkspace: boolean, initialAuthMode: 'signin' | 's
       setShowAuth(false);
       const wsId = await ensureWorkspace();
       await loadOperationalState(wsId);
+      redirectToWorkspaceIfNeeded();
       notify('Workspace created', 'Credara is now using live backend records.');
     } catch (error) {
       notify('Signup failed', error instanceof Error ? error.message.slice(0, 140) : 'Unknown error');
@@ -432,6 +440,7 @@ function useCredaraApp(startInWorkspace: boolean, initialAuthMode: 'signin' | 's
       setShowAuth(false);
       const id = await loadWorkspace();
       await loadOperationalState(id);
+      redirectToWorkspaceIfNeeded();
       notify('Signed in', 'Live workspace loaded.');
     } catch (error) {
       notify('Sign in failed', error instanceof Error ? error.message.slice(0, 140) : 'Unknown error');
@@ -722,15 +731,27 @@ export default function CredaraLiveApp({ startInWorkspace = false, initialAuthMo
     [safeAllowed],
   );
 
+  const openDemo = () => {
+    if (typeof window !== 'undefined') window.location.href = '/workspace';
+  };
+
   return (
     <main className="credara-app">
       {toastView(app.toast)}
       {showLanding ? (
         <>
-          <LandingPage
-            onSignIn={() => { setState((c) => ({ ...c, authMode: 'signin' })); app.setShowAuth(true); }}
-            onSignUp={() => { setState((c) => ({ ...c, authMode: 'signup' })); app.setShowAuth(true); }}
-          />
+          {startInWorkspace ? (
+            <DemoEntryPage
+              onSignIn={() => { setState((c) => ({ ...c, authMode: 'signin' })); app.setShowAuth(true); }}
+              onSignUp={() => { setState((c) => ({ ...c, authMode: 'signup' })); app.setShowAuth(true); }}
+            />
+          ) : (
+            <LandingPage
+              onSignIn={() => { setState((c) => ({ ...c, authMode: 'signin' })); app.setShowAuth(true); }}
+              onSignUp={() => { setState((c) => ({ ...c, authMode: 'signup' })); app.setShowAuth(true); }}
+              onOpenDemo={openDemo}
+            />
+          )}
           {app.showAuth && <AuthOverlay app={app} />}
         </>
       ) : (
