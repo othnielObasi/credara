@@ -213,6 +213,32 @@ def create_receivable(payload: ReceivableCreate, db: Session = Depends(get_db), 
     db.commit(); db.refresh(receivable)
     return receivable
 
+@router.get('/smart-lcs', response_model=list[SmartLCRead])
+def list_smart_lcs(
+    seller_business_id: str | None = None,
+    order_id: str | None = None,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles(Role.SME, Role.BUYER, Role.FINANCIER, Role.ADMIN)),
+):
+    q = db.query(SmartLC)
+    if order_id:
+        q = q.filter(SmartLC.order_id == order_id)
+    if seller_business_id:
+        if user.role == Role.SME.value:
+            _require_owns_business(db, user, seller_business_id)
+        q = q.filter(SmartLC.seller_business_id == seller_business_id)
+    elif user.role == Role.SME.value:
+        owned_ids = [b.id for b in db.query(Business).filter(Business.owner_user_id == user.id).all()]
+        q = q.filter(SmartLC.seller_business_id.in_(owned_ids)) if owned_ids else q.filter(False)
+    elif user.role == Role.BUYER.value:
+        owned_ids = [b.id for b in db.query(Business).filter(Business.owner_user_id == user.id).all()]
+        if owned_ids:
+            order_ids = [o.id for o in db.query(Order).filter(Order.buyer_business_id.in_(owned_ids)).all()]
+            q = q.filter(SmartLC.order_id.in_(order_ids)) if order_ids else q.filter(False)
+        else:
+            q = q.filter(False)
+    return q.order_by(SmartLC.created_at.desc()).limit(50).all()
+
 @router.post('/smart-lcs', response_model=SmartLCRead)
 def create_smart_lc(payload: SmartLCCreate, db: Session = Depends(get_db), user: User = Depends(require_roles(Role.BUYER, Role.FINANCIER, Role.ADMIN))):
     order = db.get(Order, payload.order_id)

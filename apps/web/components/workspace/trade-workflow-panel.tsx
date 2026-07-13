@@ -201,14 +201,6 @@ export function TradeWorkflowPanel({ businessId, businessName, apiRole, onNotify
 
   return (
     <div className="page-stack">
-      <section className="soft-banner">
-        <div className="mark">Flow</div>
-        <div>
-          <strong>Trade → confirm → invoice → delivery → receivable → Polygon</strong>
-          <span>Signed in as {titleCase(apiRole)}. Buyer steps require a buyer account JWT.</span>
-        </div>
-      </section>
-
       {anchorOnChain !== null && (
         <section className="panel">
           <strong>Credara proof receipt · Polygon Amoy</strong>

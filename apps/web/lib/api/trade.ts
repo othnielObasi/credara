@@ -106,4 +106,45 @@ export const tradeApi = {
 
   createReceivable: (invoiceId: string) =>
     apiRequest<Receivable>('/trade/receivables', { method: 'POST', body: JSON.stringify({ invoice_id: invoiceId }) }),
+
+  listSmartLCs: (opts?: { sellerBusinessId?: string; orderId?: string }) => {
+    const params = new URLSearchParams();
+    if (opts?.sellerBusinessId) params.set('seller_business_id', opts.sellerBusinessId);
+    if (opts?.orderId) params.set('order_id', opts.orderId);
+    const q = params.toString();
+    return apiRequest<SmartLC[]>(`/trade/smart-lcs${q ? `?${q}` : ''}`);
+  },
+
+  createSmartLC: (body: { order_id: string; amount: number; currency?: string }) =>
+    apiRequest<SmartLC>('/trade/smart-lcs', { method: 'POST', body: JSON.stringify(body) }),
+
+  fundSmartLC: (lcId: string, reason?: string) =>
+    apiRequest<SmartLCActionResult>(`/smart-lcs/${lcId}/fund`, {
+      method: 'POST',
+      body: JSON.stringify(reason ? { reason } : {}),
+    }),
+
+  releaseSmartLC: (lcId: string, reason?: string) =>
+    apiRequest<SmartLCActionResult>(`/smart-lcs/${lcId}/release`, {
+      method: 'POST',
+      body: JSON.stringify(reason ? { reason } : {}),
+    }),
+};
+
+export type SmartLC = {
+  id: string;
+  order_id: string;
+  seller_business_id: string;
+  buyer_name: string;
+  amount: number;
+  currency: string;
+  status: string;
+  contract_address: string | null;
+  polygon_tx_hash: string | null;
+};
+
+export type SmartLCActionResult = {
+  smart_lc: SmartLC;
+  on_chain: boolean;
+  explorer_url?: string | null;
 };

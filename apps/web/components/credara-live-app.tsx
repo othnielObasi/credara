@@ -3,9 +3,11 @@
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
 import LandingPage from './landing/landing-page';
 import DemoEntryPage from './landing/demo-entry-page';
+import AuthOverlay from './auth-overlay';
 import { TradeWorkflowPanel, DeliveryProofPanel, ReceivablesPanel, ProofLedgerPage } from './workspace/trade-workflow-panel';
+import { SettlementPanel } from './workspace/settlement-panel';
 import { SettingsPanel, InvitationsPanel, BuyerInboxPanel, MarketplacePanel, DealRoomPanel } from './workspace/workspace-panels';
-import { clearAuthSession, loginUser, OAUTH_LOGIN_URL, realApi, registerUser, setAuthSession } from '../lib/api';
+import { clearAuthSession, loginUser, realApi, registerUser, setAuthSession } from '../lib/api';
 import { financeApi } from '../lib/api/finance';
 import { tradeApi, type Order } from '../lib/api/trade';
 import { fmt, statusTone, titleCase } from '../lib/format';
@@ -629,8 +631,41 @@ function useCredaraApp(startInWorkspace: boolean, initialAuthMode: 'signin' | 's
 
   async function releaseEscrow() {
     try {
+      const lcs = await tradeApi.listSmartLCs(state.businessId ? { sellerBusinessId: state.businessId } : undefined);
+      const fundedLc = lcs.find((lc) => lc.status === 'funded');
+      if (fundedLc) {
+        const released = await tradeApi.releaseSmartLC(fundedLc.id, 'Release conditions satisfied from Credara UI');
+        setState((current) => ({
+          ...current,
+          escrows: current.escrows.length
+            ? current.escrows.map((e, i) => (i === 0 ? { ...e, status: 'Released' } : e))
+            : [{
+                id: fundedLc.id,
+                smartLcId: fundedLc.id,
+                contract: fundedLc.contract_address || 'on-chain',
+                asset: fundedLc.currency || 'MockUSDC',
+                requiredAmount: fundedLc.amount,
+                fundedAmount: fundedLc.amount,
+                fundingParty: fundedLc.buyer_name,
+                seller: 'Seller',
+                status: 'Released',
+                confirmations: 3,
+                releaseCondition: 'Invoice confirmed + delivery verified + proof anchored + no dispute',
+                refundCondition: 'Deadline missed or dispute upheld',
+              }],
+        }));
+        await refreshLedger();
+        notify(
+          'Payment released',
+          released.on_chain && released.explorer_url
+            ? 'Smart LC settlement released on Polygon.'
+            : 'Smart LC settlement released.',
+        );
+        return;
+      }
+
       const escrow = state.escrows[0];
-      if (!escrow?.id) throw new Error('No backend escrow available.');
+      if (!escrow?.id) throw new Error('No connected escrow — create and fund a Smart LC first.');
       const released = await realApi.releaseEscrow(escrow.id, { reason: 'Release conditions satisfied from Credara UI' });
       setState((current) => ({
         ...current,
@@ -752,7 +787,17 @@ export default function CredaraLiveApp({ startInWorkspace = false, initialAuthMo
               onOpenDemo={openDemo}
             />
           )}
-          {app.showAuth && <AuthOverlay app={app} />}
+          {app.showAuth && (
+            <AuthOverlay
+              authMode={state.authMode}
+              authForm={authForm}
+              setAuthForm={setAuthForm}
+              setAuthMode={(mode) => setState((c) => ({ ...c, authMode: mode }))}
+              onClose={() => app.setShowAuth(false)}
+              onSignUp={app.signUp}
+              onSignIn={app.signIn}
+            />
+          )}
         </>
       ) : (
         <div className="workspace-layout">
@@ -813,81 +858,57 @@ export default function CredaraLiveApp({ startInWorkspace = false, initialAuthMo
           </aside>
           <section className="workspace-main">
             <header className="topbar">
-              <div><p className="eyebrow">Credara Enterprise</p><h1>{title}</h1><span>{subtitle}</span></div>
+              <div>
+                <p className="eyebrow">Credara Enterprise</p>
+                <h1>{title}</h1>
+                <span>{subtitle}</span>
+              </div>
               <div className="top-actions">
+                {state.connected ? (
+                  <span className="connection-pill connected" title={`Last sync ${state.lastSync}`}>
+                    <span className="live-dot connected" aria-hidden="true" />
+                    Live · {state.lastSync}
+                  </span>
+                ) : state.token ? (
+                  <span className="connection-pill offline">
+                    <span className="live-dot failed" aria-hidden="true" />
+                    Not synced
+                  </span>
+                ) : null}
                 <button className="btn secondary" onClick={app.connectLive}>{state.connected ? 'Sync live' : 'Connect live'}</button>
                 <button className="btn" onClick={() => switchPage('contractDetail')}>New trade</button>
                 <button className="btn ghost" onClick={app.signOut}>Sign out</button>
               </div>
             </header>
             {judgeMode && (
-              <section className="soft-banner judge-progress" aria-label="Judge demo progress">
-                <div className="mark" aria-hidden="true">Demo</div>
-                <div>
-                  <strong>Judge path · invoice → proof → finance → Smart LC</strong>
-                  <p className="judge-climax-copy">
-                    Aha: supplier paid after verified delivery — not after 45 days of bank paperwork.
-                  </p>
-                  <ol className="judge-steps">
-                    {judgeSteps.map((step, index) => (
-                      <li
-                        key={step.label}
-                        className={index === activeJudgeStep ? 'judge-step active' : 'judge-step'}
-                        aria-current={index === activeJudgeStep ? 'step' : undefined}
-                      >
-                        {step.label}
-                      </li>
-                    ))}
-                  </ol>
-                  <div className="judge-climax-links">
-                    <a href={JUDGE_RELEASE_TX_URL} target="_blank" rel="noreferrer">
-                      Live release tx (Polygonscan)
-                    </a>
-                    <a href={JUDGE_PROOF_TX_URL} target="_blank" rel="noreferrer">
-                      Proof anchor tx
-                    </a>
-                  </div>
+              <section className="judge-rail" aria-label="Judge demo progress">
+                <ol className="judge-rail-steps">
+                  {judgeSteps.map((step, index) => (
+                    <li
+                      key={step.label}
+                      className={index === activeJudgeStep ? 'judge-rail-step active' : 'judge-rail-step'}
+                      aria-current={index === activeJudgeStep ? 'step' : undefined}
+                    >
+                      {step.label}
+                    </li>
+                  ))}
+                </ol>
+                <div className="judge-rail-links">
+                  <a href={JUDGE_RELEASE_TX_URL} target="_blank" rel="noreferrer">
+                    Release tx
+                  </a>
+                  <a href={JUDGE_PROOF_TX_URL} target="_blank" rel="noreferrer">
+                    Proof tx
+                  </a>
                 </div>
               </section>
             )}
-            <LiveBar state={state} onConnect={app.connectLive} />
+            {!state.connected && state.token ? <LiveBar state={state} onConnect={app.connectLive} /> : null}
             <PageRenderer page={activePage} state={state} app={app} metrics={metrics} switchPage={switchPage} />
           </section>
         </div>
       )}
     </main>
-  );
-}
-
-function AuthOverlay({ app }: { app: ReturnType<typeof useCredaraApp> }) {
-  const { state, authForm, setAuthForm } = app;
-  const isSignup = state.authMode === 'signup';
-  return (
-    <div className="auth-overlay" role="dialog" aria-modal="true" aria-labelledby="auth-dialog-title">
-      <form className="auth-card" onSubmit={isSignup ? app.signUp : app.signIn}>
-        <div className="auth-tabs">
-          <button type="button" className={isSignup ? 'active' : ''} onClick={() => app.setState((c) => ({ ...c, authMode: 'signup' }))}>Sign up</button>
-          <button type="button" className={!isSignup ? 'active' : ''} onClick={() => app.setState((c) => ({ ...c, authMode: 'signin' }))}>Sign in</button>
-          <button type="button" className="btn ghost small" onClick={() => app.setShowAuth(false)} aria-label="Close">×</button>
-        </div>
-        <h2 id="auth-dialog-title">{isSignup ? 'Create workspace' : 'Sign in'}</h2>
-        <p className="auth-judge-hint">
-          Judges: sign up as <strong>SME</strong> to start · Judge demo mode is on by default · email/password works if Auth0 is slow
-        </p>
-        {isSignup && (
-          <>
-            <label>Full name<input value={authForm.fullName} onChange={(e) => setAuthForm({ ...authForm, fullName: e.target.value })} /></label>
-            <label>Business name<input value={authForm.businessName} onChange={(e) => setAuthForm({ ...authForm, businessName: e.target.value })} /></label>
-            <label>Role<select value={authForm.role} onChange={(e) => setAuthForm({ ...authForm, role: e.target.value as Role })}>{(['sme', 'buyer', 'financier'] as const).map((role) => <option key={role} value={role}>{titleCase(role)}</option>)}</select></label>
-          </>
-        )}
-        <label>Email<input type="email" value={authForm.email} onChange={(e) => setAuthForm({ ...authForm, email: e.target.value })} /></label>
-        <label>Password<input type="password" value={authForm.password} onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })} /></label>
-        <button className="btn" type="submit">{isSignup ? 'Create live workspace' : 'Sign in'}</button>
-        <div className="auth-divider"><span>or</span></div>
-        <button type="button" className="btn secondary full" onClick={() => { window.location.href = OAUTH_LOGIN_URL; }}>Continue with Auth0</button>
-      </form>
-    </div>
   );
 }
 
@@ -1066,8 +1087,19 @@ function Ledger({ state, app }: { state: AppState; app: ReturnType<typeof useCre
 }
 
 function Settlement({ state, app }: { state: AppState; app: ReturnType<typeof useCredaraApp> }) {
-  const escrow = state.escrows[0];
-  return <div className="page-stack"><PageIntro title="Smart LC Settlement" body="Escrow funding, release conditions and settlement controls." /><section className="two-grid"><Panel title="Escrow account" status={escrow?.status}><Detail label="Smart LC" value={escrow?.smartLcId} /><Detail label="Contract" value={escrow?.contract} /><Detail label="Asset" value={escrow?.asset} /><Detail label="Required" value={fmt(escrow?.requiredAmount || 0)} /><Detail label="Funded" value={fmt(escrow?.fundedAmount || 0)} /><Detail label="Release condition" value={escrow?.releaseCondition} /></Panel><Panel title="Settlement controls"><Stepper steps={[['Invoice confirmed', 'Pass'], ['Delivery verified', 'Pass'], ['No open dispute', 'Pass'], ['Proof anchored', 'Pass'], ['Escrow funded', escrow?.status || 'Pending']]} /><button className="btn full" onClick={app.releaseEscrow}>Release payment</button></Panel></section></div>;
+  return (
+    <div className="page-stack">
+      <PageIntro title="Smart LC Settlement" body="Create, fund, and release Smart LC escrow tied to your live trade order." />
+      <SettlementPanel
+        businessId={state.businessId}
+        apiRole={state.jwtRole}
+        onNotify={app.notify}
+        onFunded={async () => {
+          await app.refreshLedger();
+        }}
+      />
+    </div>
+  );
 }
 
 function Reconciliation({ state, app }: { state: AppState; app: ReturnType<typeof useCredaraApp> }) {
