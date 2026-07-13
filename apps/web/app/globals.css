@@ -556,6 +556,46 @@ pre {
   display: block;
 }
 
+.judge-climax-copy {
+  margin: 6px 0 10px;
+  font-size: 13px;
+  color: var(--muted);
+  max-width: 52rem;
+}
+
+.judge-climax-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  margin-top: 10px;
+}
+
+.judge-climax-links a {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--green);
+  text-decoration: none;
+}
+
+.judge-climax-links a:hover {
+  text-decoration: underline;
+}
+
+.auth-judge-hint {
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.auth-judge-hint strong {
+  color: var(--ink);
+}
+
 .dashboard-hero {
   display: grid;
   gap: var(--space);

@@ -16,6 +16,8 @@ OUT_INVESTOR = ROOT / "docs" / "Credara_Investor_Deck.pptx"
 LANDING_SHOT = ROOT / "docs" / "screenshots" / "landing.png"
 WORKSPACE_SHOT = ROOT / "docs" / "screenshots" / "workspace-judge-mode.png"
 POLYGONSCAN_SHOT = ROOT / "docs" / "screenshots" / "polygonscan-tx.png"
+RELEASE_TX_URL = "https://amoy.polygonscan.com/tx/0x5743a885e54063da6c4056d73e4b49113918558fd09d8973c9074de8e57af9de"
+PROOF_TX_URL = "https://amoy.polygonscan.com/tx/0x71b1d6c74b30033b7f3ab1cad174bf75cf2003fce593dd8c7e04aa3964acf251"
 
 # Brand palette
 NAVY = RGBColor(0x07, 0x14, 0x2F)
@@ -105,6 +107,98 @@ def _add_comparison_row(slide, y: float, name: str, pain: str, credara: str, *, 
     _add_textbox(slide, Inches(7.9), Inches(y + 0.1), Inches(4.5), Inches(0.55), credara, size=12, bold=highlight, color=INK if highlight else MUTED)
 
 
+def _add_aha_climax_slide(slide, *, investor: bool = False) -> None:
+    """Demo climax — money moving on Polygon, not slideware."""
+    _section_header(slide, "THE AHA MOMENT", "Supplier paid after verified delivery — not after 45 days of paperwork")
+    _add_textbox(
+        slide,
+        Inches(0.9),
+        Inches(2.15),
+        Inches(5.8),
+        Inches(1.35),
+        "1,000 MockUSDC released on Polygon Amoy after Smart LC verified delivery.\nBank LC would still be on day 3 of manual processing.",
+        size=18,
+        bold=True,
+        color=INK,
+    )
+    if investor:
+        _add_textbox(
+            slide,
+            Inches(0.9),
+            Inches(3.55),
+            Inches(5.8),
+            Inches(0.9),
+            "Example: AED 250k invoice → 80% advance → funded same afternoon → released after delivery verify.",
+            size=15,
+            color=MUTED,
+        )
+    else:
+        _add_bullets(
+            slide,
+            Inches(0.9),
+            Inches(3.55),
+            Inches(5.8),
+            Inches(2.2),
+            [
+                "Live product: credara-jet.vercel.app/workspace",
+                "Judge Mode walks the flow in ~3 minutes",
+                "Fail-closed: Simulated vs Anchored — no fake links",
+            ],
+            size=14,
+        )
+    if POLYGONSCAN_SHOT.exists():
+        slide.shapes.add_picture(str(POLYGONSCAN_SHOT), Inches(7.0), Inches(2.1), width=Inches(5.8))
+    climax = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(0.9), Inches(5.85), Inches(11.5), Inches(0.75))
+    climax.fill.solid()
+    climax.fill.fore_color.rgb = RGBColor(0xEC, 0xFD, 0xF5)
+    climax.line.color.rgb = GREEN
+    _add_textbox(
+        slide,
+        Inches(1.05),
+        Inches(6.0),
+        Inches(11.2),
+        Inches(0.5),
+        f"Verified release tx: {RELEASE_TX_URL}",
+        size=11,
+        bold=True,
+        color=GREEN,
+    )
+
+
+def _add_before_after_slide(slide) -> None:
+    _section_header(slide, "BEFORE · AFTER", "Collapse 7–10 day LC friction → same-day proof-to-funding")
+    _add_textbox(slide, Inches(0.9), Inches(2.05), Inches(5.5), Inches(0.4), "Traditional bank LC", size=14, bold=True, color=MUTED)
+    bank = [
+        "7–10 days manual processing",
+        "Paper trails banks can't verify fast",
+        "~40% SME applications rejected",
+        "Supplier waits 45–90 days to get paid",
+    ]
+    y = 2.5
+    for line in bank:
+        _add_textbox(slide, Inches(0.9), Inches(y), Inches(5.5), Inches(0.45), f"✗  {line}", size=15, color=MUTED)
+        y += 0.62
+    _add_textbox(slide, Inches(7.0), Inches(2.05), Inches(5.5), Inches(0.4), "Credara (live today)", size=14, bold=True, color=BLUE)
+    credara = [
+        "Buyer confirms + delivery proof verified",
+        "Proof hash anchored on Polygon",
+        "Financier funds Smart LC escrow",
+        "Stablecoin released same day after verify",
+    ]
+    y = 2.5
+    for line in credara:
+        _add_textbox(slide, Inches(7.0), Inches(y), Inches(5.5), Inches(0.45), f"✓  {line}", size=15, bold=True, color=INK)
+        y += 0.62
+    rect = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(6.75), Inches(1.95), Inches(0.05), Inches(4.5))
+    rect.fill.solid()
+    rect.fill.fore_color.rgb = RGBColor(0xE7, 0xEA, 0xF1)
+    rect.line.fill.background()
+    _add_stat_card(slide, Inches(0.9), Inches(5.35), Inches(2.6), Inches(1.05), "7–10 days", "Bank LC")
+    _add_stat_card(slide, Inches(3.65), Inches(5.35), Inches(2.6), Inches(1.05), "45–90 days", "SME wait")
+    _add_stat_card(slide, Inches(6.4), Inches(5.35), Inches(2.6), Inches(1.05), "Same day", "Proof-to-fund")
+    _add_stat_card(slide, Inches(9.15), Inches(5.35), Inches(2.6), Inches(1.05), "3 min", "Judge Mode demo")
+
+
 def build() -> Path:
     prs = Presentation()
     prs.slide_width = Inches(13.333)
@@ -149,7 +243,15 @@ def build() -> Path:
     _add_textbox(slide, Inches(0.9), Inches(5.85), Inches(11), Inches(0.5), "Othniel Obasi & Martins Nwanu  ·  NOVTIA Ltd  ·  credara-jet.vercel.app", size=14, color=RGBColor(0x94, 0xA3, 0xB8))
     _add_footer(slide, dark=True)
 
-    # 2 — Challenge fit (maps to official brief)
+    # 2 — Aha climax (open here when pitching live)
+    slide = prs.slides.add_slide(blank)
+    _add_aha_climax_slide(slide, investor=False)
+
+    # 3 — Before / After
+    slide = prs.slides.add_slide(blank)
+    _add_before_after_slide(slide)
+
+    # 4 — Challenge fit (maps to official brief)
     slide = prs.slides.add_slide(blank)
     _section_header(slide, "CHALLENGE FIT", "Built exactly what Problem #1 asks for — on Polygon, live today")
     _add_textbox(slide, Inches(0.9), Inches(2.05), Inches(5.8), Inches(0.4), "Hackathon requirement", size=12, bold=True, color=BLUE)
@@ -536,7 +638,15 @@ def build_investor() -> Path:
     _add_textbox(slide, Inches(0.9), Inches(5.85), Inches(7.5), Inches(0.4), "Othniel Obasi & Martins Nwanu · NOVTIA Ltd · credara-jet.vercel.app", size=13, color=RGBColor(0x94, 0xA3, 0xB8))
     _add_footer(slide, dark=True)
 
-    # 2 — Problem (investor language)
+    # 2 — Aha climax
+    slide = prs.slides.add_slide(blank)
+    _add_aha_climax_slide(slide, investor=True)
+
+    # 3 — Before / After
+    slide = prs.slides.add_slide(blank)
+    _add_before_after_slide(slide)
+
+    # 4 — Problem (investor language)
     slide = prs.slides.add_slide(blank)
     _section_header(slide, "PROBLEM", "Suppliers finance the world's trade — and wait months to get paid")
     _add_stat_card(slide, Inches(0.9), Inches(2.15), Inches(2.6), Inches(1.15), "$2T+", "Unfilled trade finance demand")

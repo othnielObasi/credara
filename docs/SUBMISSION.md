@@ -155,7 +155,7 @@ Pitch slide (MockUSDC → AED corridor): [docs/PITCH_STABLECOIN_CORRIDOR.md](PIT
 - Contracts on Polygon Amoy (`MockUSDC`, `ProofRegistry`, `ReceivableRegistry`, `SmartLCFactory`, `CreditScoreAttestation`); relayer env on Vercel when configured.
 - End-to-end: order → invoice → delivery proof → proof anchor (Polygonscan when live) → receivable → Smart LC fund → verified-delivery release → credit score path.
 
-**Judge script:** [README.md](../README.md#start-here-judges--reviewers) · Checklist: [JUDGE_READINESS_PLAN.md](JUDGE_READINESS_PLAN.md)
+**Judge script:** [README.md](../README.md#start-here-judges--reviewers) · [JUDGE_DEMO_SCRIPT.md](JUDGE_DEMO_SCRIPT.md) · Checklist: [JUDGE_READINESS_PLAN.md](JUDGE_READINESS_PLAN.md)
 
 **Pre-submit ops (confirm before judging):**
 

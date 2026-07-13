@@ -8,12 +8,25 @@ Credara turns buyer-confirmed invoices and verified delivery proof into finance-
 
 ## Start here (judges & reviewers)
 
+### Aha first (60 sec)
+
+Open the **live release tx** before the app:
+
+| | Link |
+|---|------|
+| **Demo climax** | [Smart LC release on Polygonscan](https://amoy.polygonscan.com/tx/0x5743a885e54063da6c4056d73e4b49113918558fd09d8973c9074de8e57af9de) |
+| **Proof anchor** | [ProofRegistry anchor tx](https://amoy.polygonscan.com/tx/0x71b1d6c74b30033b7f3ab1cad174bf75cf2003fce593dd8c7e04aa3964acf251) |
+
+**One line:** *Supplier paid after verified delivery — bank LC would still be in paperwork.*
+
+Full script: [docs/JUDGE_DEMO_SCRIPT.md](docs/JUDGE_DEMO_SCRIPT.md)
+
 | | Link |
 |---|------|
 | **1. Open the app** | [credara-jet.vercel.app/workspace](https://credara-jet.vercel.app/workspace) |
-| **2. Sign in** | Email/password or **Continue with Auth0** |
+| **2. Sign in** | Email/password (recommended for judges) or **Continue with Auth0** |
 | **3. Prove the API** | [credara-api.vercel.app/docs](https://credara-api.vercel.app/docs) · [health](https://credara-api.vercel.app/health) |
-| **4. On-chain proof** | [amoy.polygonscan.com](https://amoy.polygonscan.com) (after anchor / Smart LC) |
+| **4. Pitch deck** | [Credara_Pitch_Deck.pptx](docs/Credara_Pitch_Deck.pptx) — slide 2 = aha moment |
 
 ### 5-step judge script (~3 min)
 

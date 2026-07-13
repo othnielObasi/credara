@@ -9,6 +9,12 @@ import { financeApi } from '../lib/api/finance';
 import { tradeApi, type Order } from '../lib/api/trade';
 import { fmt, statusTone, titleCase } from '../lib/format';
 
+/** Verified Amoy txs — demo climax for judges (fail-closed product proof). */
+export const JUDGE_PROOF_TX_URL =
+  'https://amoy.polygonscan.com/tx/0x71b1d6c74b30033b7f3ab1cad174bf75cf2003fce593dd8c7e04aa3964acf251';
+export const JUDGE_RELEASE_TX_URL =
+  'https://amoy.polygonscan.com/tx/0x5743a885e54063da6c4056d73e4b49113918558fd09d8973c9074de8e57af9de';
+
 type Role = 'sme' | 'buyer' | 'financier' | 'admin' | 'developer';
 type PageKey =
   | 'dashboard'
@@ -798,6 +804,9 @@ export default function CredaraLiveApp({ startInWorkspace = false, initialAuthMo
                 <div className="mark" aria-hidden="true">Demo</div>
                 <div>
                   <strong>Judge path · invoice → proof → finance → Smart LC</strong>
+                  <p className="judge-climax-copy">
+                    Aha: supplier paid after verified delivery — not after 45 days of bank paperwork.
+                  </p>
                   <ol className="judge-steps">
                     {judgeSteps.map((step, index) => (
                       <li
@@ -809,6 +818,14 @@ export default function CredaraLiveApp({ startInWorkspace = false, initialAuthMo
                       </li>
                     ))}
                   </ol>
+                  <div className="judge-climax-links">
+                    <a href={JUDGE_RELEASE_TX_URL} target="_blank" rel="noreferrer">
+                      Live release tx (Polygonscan)
+                    </a>
+                    <a href={JUDGE_PROOF_TX_URL} target="_blank" rel="noreferrer">
+                      Proof anchor tx
+                    </a>
+                  </div>
                 </div>
               </section>
             )}
@@ -833,6 +850,9 @@ function AuthOverlay({ app }: { app: ReturnType<typeof useCredaraApp> }) {
           <button type="button" className="btn ghost small" onClick={() => app.setShowAuth(false)} aria-label="Close">×</button>
         </div>
         <h2 id="auth-dialog-title">{isSignup ? 'Create workspace' : 'Sign in'}</h2>
+        <p className="auth-judge-hint">
+          Judges: sign up as <strong>SME</strong> to start · Judge demo mode is on by default · email/password works if Auth0 is slow
+        </p>
         {isSignup && (
           <>
             <label>Full name<input value={authForm.fullName} onChange={(e) => setAuthForm({ ...authForm, fullName: e.target.value })} /></label>
