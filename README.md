@@ -1,188 +1,180 @@
-# Credara Enterprise
+# Credara
 
-Credara is an enterprise-grade SME trade-finance infrastructure platform for tokenized receivables, smart contract letters of credit, proof-backed settlement, and trade credit scoring on Polygon.
+**Polygon-native SME trade finance for the UAE corridor.**
 
-The repository is intentionally structured as a monorepo so the web app, API, workers, smart contracts, shared schemas, and documentation evolve together.
+Buyer-confirmed invoices and delivery proofs become finance-ready receivables, settled with programmable Smart LC stablecoin escrow — not remittance, POS, or a consumer wallet.
 
-## Product scope
+Demo climax: **live Polygon Amoy proof anchor → Polygonscan.** Pitch: MockUSDC today → regulated AED stablecoin for B2B settlement tomorrow ([pitch notes](docs/PITCH_STABLECOIN_CORRIDOR.md)).
 
-Credara supports four operating workspaces:
+---
 
-- SME workspace: orders, invoices, delivery proof, receivables, finance readiness, trust/credit score.
-- Buyer workspace: supplier verification, invoice confirmation, delivery confirmation, dispute handling.
-- Financier workspace: verified receivables, credit review, financing offers, smart LC funding, repayment tracking.
-- Admin/Risk workspace: KYB review, suspicious proof review, dispute resolution, audit trail.
+## Live product
 
-## Judge readiness (Polygon / UAE)
+| Surface | URL |
+|---------|-----|
+| Web workspace | [https://credara-jet.vercel.app](https://credara-jet.vercel.app) |
+| API health | [https://credara-api.vercel.app/health](https://credara-api.vercel.app/health) |
+| API docs | [https://credara-api.vercel.app/docs](https://credara-api.vercel.app/docs) |
 
-Pitch Credara as **UAE B2B trade payments & working capital on Polygon**, not remittance/POS.
+**Judge Mode (≈3 minutes):** open Workspace → enable **Judge demo mode** → walk invoice → buyer confirm → delivery proof → receivable → anchor (Polygonscan when live) → Smart LC fund → release.
 
-See [`docs/JUDGE_READINESS_PLAN.md`](docs/JUDGE_READINESS_PLAN.md) for the P0–P2 checklist (fail-closed chain writes, Judge Mode path, Amoy ops).
+Detailed checklist: [docs/JUDGE_READINESS_PLAN.md](docs/JUDGE_READINESS_PLAN.md) · Submission draft: [docs/SUBMISSION.md](docs/SUBMISSION.md)
 
-## Architecture
+---
+
+## What Credara does
+
+Four role workspaces on one shared, verified trade record:
+
+| Workspace | Outcomes |
+|-----------|----------|
+| **SME** | Orders, invoices, delivery proof, receivables, finance readiness, trade credit score |
+| **Buyer** | Confirm obligation, confirm delivery, raise disputes |
+| **Financier** | Review verified receivables, fund Smart LCs, track settlement |
+| **Admin / Risk** | KYB review, proof scrutiny, disputes, audit trail |
+
+**On-chain suite (Polygon Amoy):** `ProofRegistry`, `ReceivableRegistry`, `SmartLCFactory` / `SmartLC`, `CreditScoreAttestation`, `MockUSDC` (demo settlement asset).
+
+---
+
+## Production architecture
 
 ```text
-apps/web             Next.js enterprise dashboard
-apps/api             FastAPI backend API
-apps/workers         Relayer, indexer, proof, scoring workers
-contracts            Solidity contracts for Polygon Amoy/PoS
-packages/shared      Shared schemas, API contracts and domain enums
-docs                 BRD, technical spec and implementation runbooks
-infra                Docker Compose, deployment and local infra
+apps/web        Next.js 15 workspace + marketing
+apps/api        FastAPI (Postgres, JWT + Auth0, Didit KYB, Amoy writes)
+apps/workers    Relayer / indexer / scoring (Compose / outbox drain)
+contracts       Hardhat + Solidity 0.8.28 (CI: test + Slither)
+docs            Specs, judge plan, process flows
+infra           Docker Compose
 ```
 
-## Quick start
+| Concern | Approach |
+|---------|----------|
+| Auth | Password sessions + Auth0 authorization-code (server-brokered) |
+| KYB | Provider abstraction (`KYB_PROVIDER=didit` in production) |
+| Data | Postgres (Neon on Vercel); role-scoped API access |
+| Chain honesty | Fail-closed: no fake explorer links; `on_chain=false` shows **Simulated** |
+| Relayer | Outbox + cron drain (`CRON_SECRET`); Smart LC create/fund/release via factory |
+| Contracts CI | [`.github/workflows/contracts.yml`](.github/workflows/contracts.yml) |
+
+---
+
+## Production deploy (Vercel)
+
+| App | Project | Root | Production URL |
+|-----|---------|------|----------------|
+| Web | `credara-jet` | `apps/web` | https://credara-jet.vercel.app |
+| API | `credara-api` | `apps/api` | https://credara-api.vercel.app |
+
+GitHub → Vercel auto-deploy with those root directories. CLI deploy from the monorepo root (project Root Directory must match).
+
+### Required environment (API)
+
+Copy from [`.env.example`](.env.example). Production must include:
+
+```text
+ENVIRONMENT=production
+DATABASE_URL / Neon vars
+JWT_SECRET                    # never leave the example default
+CORS_ORIGINS                  # include https://credara-jet.vercel.app
+RELAYER_PRIVATE_KEY
+POLYGON_CHAIN_ID=80002
+POLYGON_RPC_URL
+PROOF_REGISTRY_ADDRESS
+RECEIVABLE_REGISTRY_ADDRESS
+SMART_LC_FACTORY_ADDRESS
+MOCK_USDC_ADDRESS
+CREDIT_SCORE_ATTESTATION_ADDRESS
+KYB_PROVIDER=didit            # + Didit secrets
+AUTH0_DOMAIN / CLIENT_ID / CLIENT_SECRET
+AUTH0_CALLBACK_URL=https://credara-api.vercel.app/api/v1/auth/oauth/callback
+AUTH0_FRONTEND_REDIRECT=https://credara-jet.vercel.app/auth/callback
+CRON_SECRET
+```
+
+Do **not** set `ALLOW_SIMULATED_CHAIN=true` in production unless you intentionally want soft failures without live chain.
+
+### Required environment (Web)
+
+```text
+NEXT_PUBLIC_API_BASE=/api/v1
+API_PROXY_TARGET=https://credara-api.vercel.app
+NEXT_PUBLIC_API_ORIGIN=https://credara-api.vercel.app   # Auth0 must start on API host (state cookie)
+```
+
+### Auth0 application URLs
+
+| Setting | Value |
+|---------|--------|
+| Allowed Callback URLs | `https://credara-api.vercel.app/api/v1/auth/oauth/callback` |
+| Allowed Logout URLs | `https://credara-jet.vercel.app`, `…/workspace`, `…/login` |
+| Allowed Web Origins | `https://credara-jet.vercel.app` |
+
+OAuth login must hit the **API origin** (`…/api/v1/auth/oauth/login`) so the state cookie and callback share a host.
+
+### Production guardrails
+
+- Demo/in-memory `/payments/*` routers are **off** when `ENVIRONMENT=production`.
+- Cron drains the blockchain outbox (`apps/api/vercel.json`); Bearer `CRON_SECRET`.
+- Smoke: `python scripts/e2e_production_smoke.py`
+
+---
+
+## Local development
 
 ```bash
-cp .env.example .env   # or: make setup-env
-bash scripts/dev-local.sh api   # terminal 1
-bash scripts/dev-local.sh web   # terminal 2
+cp .env.example .env          # or: make setup-env
+bash scripts/dev-local.sh api # terminal 1
+bash scripts/dev-local.sh web # terminal 2
 ```
 
-Or with Docker: `make dev`
-
-### Production deploy (Vercel)
-
-Use these projects (not the legacy stuck `credara` project):
-
-| App | Vercel project | Root directory | URL |
-|-----|----------------|----------------|-----|
-| Web | `credara-jet` | `apps/web` | https://credara-jet.vercel.app/ |
-| API | `credara-api` | `apps/api` | https://credara-api.vercel.app/ |
-
-API health: https://credara-api.vercel.app/health  
-API docs: https://credara-api.vercel.app/docs  
-
-**Auth0 (required for OAuth):** Allowed Callback URL  
-`https://credara-api.vercel.app/api/v1/auth/oauth/callback`  
-Allowed Logout/App URLs: `https://credara-jet.vercel.app`
-
-**Production notes:**
-- Demo `/api/v1/payments/*` routers are **disabled** when `ENVIRONMENT=production` (use `/api/v1/real/*`).
-- Set `CRON_SECRET` on the API project so Vercel Cron can drain the blockchain outbox (Hobby: once daily at 12:00 UTC; Pro: raise frequency in `apps/api/vercel.json`). External cron may POST/GET `/api/v1/internal/relayer/drain` with `Authorization: Bearer $CRON_SECRET`.
-- KYB: set `KYB_PROVIDER=didit` with Didit credentials, or explicitly `ALLOW_MOCK_KYB=true` for sandbox.
-- Smoke test: `python scripts/e2e_production_smoke.py`
-
-Local Docker (optional): `make deploy-production`
-
-API docs (local): http://localhost:8000/docs  
-Web app (local): http://localhost:3000
-
-## Local development without Docker
+- Web: http://localhost:3000  
+- API docs: http://localhost:8000/docs  
+- Docker (optional): `make dev`
 
 ```bash
-make setup-env          # once: creates .env
-bash scripts/dev-local.sh api   # terminal 1
-bash scripts/dev-local.sh web   # terminal 2
+cd contracts && npm ci && npm test
 ```
 
-Open **http://localhost:3000/** — sign up to create a live workspace.
+Relayer must hold factory `CREATOR_ROLE` for live Smart LC deploys. Amoy Polarscan: https://amoy.polygonscan.com
 
-```bash
-cd contracts
-npm install
-npm run compile
-npm test
-```
+---
 
-## Polygon demo flow
+## Judge demo flow (business)
 
-1. Deploy `MockUSDC`, `ProofRegistry`, `ReceivableRegistry`, `SmartLCFactory`, `CreditScoreAttestation` to Polygon Amoy.
-2. Create an SME, buyer, invoice, delivery proof and proof bundle through the API.
-3. Anchor the proof bundle with the relayer worker.
-4. Create a receivable from the buyer-confirmed invoice.
-5. Create/fund a smart LC using mock USDC.
-6. Verify delivery and release settlement.
-7. Update and anchor the SME trade credit score.
-8. Show transaction references in the Proof Ledger.
+1. **SME** — order → invoice → delivery proof  
+2. **Buyer** — confirm order / invoice  
+3. **SME** — receivable → **anchor proof** (live tx when relayer configured)  
+4. **Financier** — fund Smart LC  
+5. **Release** — settlement after verified delivery  
 
-## Production controls included
+Today’s settlement asset is **MockUSDC** on Amoy; rails are ERC-20-token-agnostic for a future CBUAE-aligned AED stablecoin ([corridor pitch](docs/PITCH_STABLECOIN_CORRIDOR.md)).
 
-- Modular bounded contexts.
-- Role-aware access checks.
-- Immutable audit log model.
-- Outbox pattern for blockchain relayer safety.
-- Idempotency-key support for write endpoints.
-- Deterministic proof hashing.
-- Trade credit scoring service separated from API handlers.
-- Contract pause/role/reentrancy controls.
-- Dockerized API, web, worker, Postgres and Redis.
-- Tests for hashing, scoring, and API workflows.
+---
 
-## Production controls to complete before real deployment
+## Documentation map
 
-- Replace demo auth with production IdP/OIDC.
-- Complete KYB provider integration.
-- Replace mock USDC with approved production stablecoin flow.
-- Independent Solidity audit.
-- Legal review for receivable assignment and LC enforceability.
-- Mainnet deployment, monitoring, alerting and incident runbooks.
+| Doc | Purpose |
+|-----|---------|
+| [docs/JUDGE_READINESS_PLAN.md](docs/JUDGE_READINESS_PLAN.md) | Judge criteria & checklist |
+| [docs/PITCH_STABLECOIN_CORRIDOR.md](docs/PITCH_STABLECOIN_CORRIDOR.md) | MockUSDC → AED talk track |
+| [docs/SUBMISSION.md](docs/SUBMISSION.md) | Hackathon submission draft |
+| [docs/PROCESS_FLOWS.md](docs/PROCESS_FLOWS.md) | End-to-end business/technical flows |
+| [docs/ENTERPRISE_WORKFLOW_BACKEND.md](docs/ENTERPRISE_WORKFLOW_BACKEND.md) | Enterprise workflow APIs |
+| [docs/NETWORK_DISCOVERY_API.md](docs/NETWORK_DISCOVERY_API.md) | Directory / marketplace APIs |
 
-## Process Flow Documentation
+Older feature-series notes (v5–v12, payments/escrow wiring, onboarding) remain under `docs/` for implementers; they are not required for judging.
 
-Credara includes full enterprise process-flow documentation for implementation and review:
+---
 
-- `docs/PROCESS_FLOWS.md` — detailed end-to-end business and technical flows.
-- `docs/PROCESS_FLOW_DIAGRAMS.md` — Mermaid diagrams for key flows.
-- `docs/PROCESS_FLOW_IMPLEMENTATION_CHECKLIST.md` — build and readiness checklist.
+## Production maturity
 
-These flows cover identity, KYB, orders, invoices, delivery proof, proof anchoring, receivables, smart LCs, financier review, credit scoring, disputes, blockchain relayer/indexer, developer APIs, admin risk review, and the hackathon demo flow.
+**In place:** role-aware APIs, Auth0 + password auth, Didit KYB path, audit log, idempotency keys, deterministic proof hashing, fail-closed chain UX, Smart LC factory wiring, outbox + cron, contract tests + Slither CI, Vercel dual-project deploy.
 
+**Before regulated mainnet:** independent Solidity audit, legal review of receivable assignment / LC enforceability, licensed AED (or other) settlement asset, mainnet monitoring and incident runbooks.
 
-## Enterprise Workflow Backend Upgrade
+---
 
-The backend now includes the expanded multi-user workflow needed to match the enterprise UI: Buyer Inbox, Logistics Verification, Financier Deal Room, Repayments, Evidence Bundles, API Explorer support, Risk Rules, Permissions Matrix, Smart LC lifecycle actions, and Credit Score Attestation. See `docs/ENTERPRISE_WORKFLOW_BACKEND.md` for endpoint details and production notes.
+## License / team
 
-## v5 Network Discovery and Trade Market Layer
-
-This version adds the pre-transaction network layer required for a complete enterprise trade finance product:
-
-- Business Directory for verified buyers, sellers, financiers and logistics providers.
-- Counterparty Invitations for private, relationship-based trade workflows.
-- Trade Contracts that can be created directly, by invite, or from accepted seller proposals.
-- Trade Opportunities for buyer-posted demand discoverable by verified sellers.
-- Seller Proposals for quotes, terms and contract conversion.
-- Financier Marketplace for discovering finance-ready receivables.
-
-Implementation docs:
-
-- `docs/NETWORK_DISCOVERY_IMPLEMENTATION.md`
-- `docs/NETWORK_DISCOVERY_API.md`
-- `docs/UI_NETWORK_DISCOVERY_UPDATE.md`
-
-
-## Contract and Invoice Operating Records
-
-v6 adds rich contract/invoice detail APIs and downloadable contract/invoice HTML documents. See `docs/CONTRACT_INVOICE_OPERATING_RECORDS.md`.
-
-
-## Payments, Wallets, Escrow and Settlement Ledger
-
-v7 adds wallet/payment intent, Smart LC escrow, settlement ledger reporting, role reports, admin aggregate reporting and reconciliation APIs. See `docs/PAYMENTS_ESCROW_LEDGER.md`.
-
-
-## Feature Structure and Noise Reduction
-
-v8 separates core product features from supporting tools and demo controls. See `docs/FEATURE_STRUCTURE_AND_NOISE_REDUCTION.md`.
-
-
-## Onboarding and Invitation Flows
-
-v9 adds business onboarding, invitations, role routing, members, and setup checklist APIs. See `docs/ONBOARDING_AND_INVITATIONS.md`.
-
-
-## Role-Filtered Navigation and Settings
-
-v10 filters pages by selected role and moves API/platform controls into Settings. See `docs/ROLE_FILTERED_SETTINGS.md`.
-
-
-## v12 Enterprise UI
-
-The runnable app is the **Credara Next.js workspace** at `http://localhost:3000/` (`apps/web`).
-
-The old standalone HTML demo has been archived to `docs/archive/` for reference only — it is **not** the product UI. Do not open `credara-ui.html` directly; use the Next.js app.
-
-
-## Real Workflow Wiring
-
-v11 adds persistent onboarding, invitations, settings, API keys, webhooks, wallets, payment intents, escrow, settlement ledger and reconciliation APIs. See `docs/REAL_WORKFLOW_WIRING_V11.md`.
+Private monorepo for Credara Enterprise. Fill team bios in [docs/SUBMISSION.md](docs/SUBMISSION.md) before formal submission.
