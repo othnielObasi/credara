@@ -10,28 +10,28 @@ export default function LandingPage({ onSignIn, onSignUp }: LandingPageProps) {
 
   return (
     <div className="landing-page landing">
-      <header className="landing-nav public-nav">
-        <a className="brand" href="#top" onClick={(e) => { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>
-          <div className="brand-mark" aria-hidden />
-          <strong className="brand-name">credara</strong>
+      <header className="landing-nav">
+        <a className="landing-brand" href="#top" onClick={(e) => { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>
+          <div className="landing-brand-mark" aria-hidden />
+          <strong className="landing-brand-name">credara</strong>
         </a>
-        <nav className="landing-links public-links" aria-label="Sections">
+        <nav className="landing-links" aria-label="Sections">
           <button type="button" onClick={() => scrollTo('solution')}>Solution</button>
           <button type="button" onClick={() => scrollTo('workflow')}>How it works</button>
           <button type="button" onClick={() => scrollTo('audience')}>For teams</button>
           <button type="button" onClick={() => scrollTo('polygon')}>Polygon stack</button>
         </nav>
-        <div className="top-actions public-actions">
+        <div className="landing-actions">
           <button type="button" className="btn secondary" onClick={onSignIn}>Sign in</button>
           <button type="button" className="btn" onClick={onSignUp}>Sign up</button>
           <button type="button" className="btn dark" onClick={onSignUp}>View demo workspace</button>
         </div>
       </header>
 
-      <section className="landing-hero hero">
+      <section className="landing-hero">
         <div className="hero-infra-bg" aria-hidden />
         <div>
-          <div className="eyebrow">Built on Polygon for UAE stablecoin and SME trade finance rails</div>
+          <div className="landing-eyebrow">Built on Polygon for UAE stablecoin and SME trade finance rails</div>
           <h1>Tokenized receivables, smart LCs, and <span>on-chain trade credit.</span></h1>
           <p>
             Credara helps SMEs, buyers, and financiers convert verified invoices, delivery proof, and settlement events

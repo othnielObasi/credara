@@ -1,4 +1,5 @@
 import './globals.css';
+import '../styles/landing.css';
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import { QueryProvider } from '../components/providers/query-provider';
