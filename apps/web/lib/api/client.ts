@@ -1,6 +1,16 @@
 export const API_BASE = process.env.NEXT_PUBLIC_API_BASE || '/api/v1';
 export const REAL_BASE = `${API_BASE}/real`;
 
+/** Absolute API origin for browser redirects (Auth0). Relative `/api/v1` proxies set cookies on the web host, but Auth0 callbacks hit the API host. */
+export const API_ORIGIN = (
+  process.env.NEXT_PUBLIC_API_ORIGIN ||
+  (API_BASE.startsWith('http://') || API_BASE.startsWith('https://')
+    ? new URL(API_BASE).origin
+    : 'https://credara-api.vercel.app')
+).replace(/\/$/, '');
+
+export const OAUTH_LOGIN_URL = `${API_ORIGIN}/api/v1/auth/oauth/login`;
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -34,13 +44,17 @@ async function parseResponse<T>(res: Response): Promise<T> {
 
 export async function apiRequest<T>(path: string, options: RequestInit = {}, token?: string | null): Promise<T> {
   const authToken = token ?? getAuthToken();
+  const headers: Record<string, string> = {
+    ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+    ...(options.headers as Record<string, string> | undefined),
+  };
+  // Default JSON only when the caller did not set Content-Type (form login must stay urlencoded).
+  if (options.body && !Object.keys(headers).some((key) => key.toLowerCase() === 'content-type')) {
+    headers['Content-Type'] = 'application/json';
+  }
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
-    headers: {
-      ...(options.body ? { 'Content-Type': 'application/json' } : {}),
-      ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
-      ...(options.headers || {}),
-    },
+    headers,
     cache: 'no-store',
   });
   return parseResponse<T>(res);

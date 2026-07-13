@@ -1,5 +1,5 @@
 import secrets
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
@@ -70,13 +70,21 @@ async def oauth_callback(
     db: Session = Depends(get_db),
 ):
     settings = get_settings()
+
+    def _fail(message: str) -> RedirectResponse:
+        redirect = RedirectResponse(f'{settings.auth0_frontend_redirect}?error={quote(message)}')
+        redirect.delete_cookie(OAUTH_STATE_COOKIE)
+        return redirect
+
     if error:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, f'Auth0 error: {error} - {error_description or ""}')
+        return _fail(f'Auth0 error: {error} - {error_description or ""}')
     if not code or not state:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, 'Missing code or state from Auth0 callback')
+        return _fail('Missing code or state from Auth0 callback')
     cookie_state = request.cookies.get(OAUTH_STATE_COOKIE)
     if not cookie_state or cookie_state != state:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, 'Invalid or expired OAuth state')
+        return _fail(
+            'Invalid or expired OAuth state. Start sign-in again from Credara (do not reuse an old callback link).'
+        )
 
     async with httpx.AsyncClient(timeout=15.0) as client:
         token_resp = await client.post(f'https://{settings.auth0_domain}/oauth/token', json={
@@ -87,11 +95,11 @@ async def oauth_callback(
             'redirect_uri': settings.auth0_callback_url,
         })
         if token_resp.status_code != 200:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, f'Auth0 token exchange failed: {token_resp.text}')
+            return _fail(f'Auth0 token exchange failed: {token_resp.text}')
         tokens = token_resp.json()
         id_token = tokens.get('id_token')
         if not id_token:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, 'Auth0 did not return an id_token')
+            return _fail('Auth0 did not return an id_token')
 
         jwks_resp = await client.get(f'https://{settings.auth0_domain}/.well-known/jwks.json')
         jwks = jwks_resp.json()
@@ -103,11 +111,11 @@ async def oauth_callback(
             issuer=f'https://{settings.auth0_domain}/',
         )
     except JWTError as exc:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, f'Invalid Auth0 id_token: {exc}') from exc
+        return _fail(f'Invalid Auth0 id_token: {exc}')
 
     email = claims.get('email')
     if not email:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, 'Auth0 identity has no email claim')
+        return _fail('Auth0 identity has no email claim')
     full_name = claims.get('name') or email
 
     user = db.query(User).filter(User.email == email).first()

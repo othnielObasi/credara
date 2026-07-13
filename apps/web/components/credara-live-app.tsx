@@ -4,7 +4,7 @@ import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
 import LandingPage from './landing/landing-page';
 import { TradeWorkflowPanel, DeliveryProofPanel, ReceivablesPanel, ProofLedgerPage } from './workspace/trade-workflow-panel';
 import { SettingsPanel, InvitationsPanel, BuyerInboxPanel, MarketplacePanel, DealRoomPanel } from './workspace/workspace-panels';
-import { API_BASE, clearAuthSession, loginUser, realApi, registerUser, setAuthSession } from '../lib/api';
+import { clearAuthSession, loginUser, OAUTH_LOGIN_URL, realApi, registerUser, setAuthSession } from '../lib/api';
 import { financeApi } from '../lib/api/finance';
 import { tradeApi, type Order } from '../lib/api/trade';
 import { fmt, statusTone, titleCase } from '../lib/format';
@@ -844,7 +844,7 @@ function AuthOverlay({ app }: { app: ReturnType<typeof useCredaraApp> }) {
         <label>Password<input type="password" value={authForm.password} onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })} /></label>
         <button className="btn" type="submit">{isSignup ? 'Create live workspace' : 'Sign in'}</button>
         <div className="auth-divider"><span>or</span></div>
-        <button type="button" className="btn secondary full" onClick={() => { window.location.href = `${API_BASE}/auth/oauth/login`; }}>Continue with Auth0</button>
+        <button type="button" className="btn secondary full" onClick={() => { window.location.href = OAUTH_LOGIN_URL; }}>Continue with Auth0</button>
       </form>
     </div>
   );
