@@ -1,114 +1,123 @@
-# Credara — DIFC/Ignyte × Polygon UAE Hackathon Submission
+# Credara — Smart Commerce Infrastructure Challenge Submission
 
-Target track: **Problem 1 — SME Trade Finance Is Broken**
+**Positioning (locked):** Credara is Polygon-native SME trade-finance infrastructure for the UAE corridor: buyer-confirmed invoices and delivery proofs become finance-ready receivables, settled via Smart LC stablecoin escrow. This is **B2B trade settlement**, not remittance, POS, or a consumer wallet.
+
+**Live demo:** [credara-jet.vercel.app/workspace](https://credara-jet.vercel.app/workspace) · API: [credara-api.vercel.app/docs](https://credara-api.vercel.app/docs)
 
 ---
 
 ## 1. Team background and technical credentials
 
-> ⚠️ Placeholder — fill in with real names/bios. I don't have your team's actual credentials to draw from, and judges will check, so this is intentionally left for you rather than invented.
+Credara is built by **Othniel Obasi**, founder of NOVTIA Ltd (London), an AI governance and infrastructure company, with a decade of enterprise product leadership spanning:
 
-- **[Name]** — [Role, e.g. Founder/Lead Engineer] — [relevant background: fintech, trade finance, blockchain, or domain experience]
-- **[Name]** — [Role] — [background]
-- *(add each team member)*
+- **Digital banking** — Creditville MFBank platform turnaround (40K → 100K+ users).
+- **Utilities enterprise transformation** — PHED, 5M+ customers, $96M+ revenue growth delivered over a 6-year transformation.
+- **AI governance and runtime infrastructure** — architect of AIRG (AI Runtime Governor), a proprietary policy-engine governance control plane with a cryptographic receipt chain (SURGE v2), now applied to Credara's proof-anchoring and evidence model.
+- **Trade finance / fintech infra build track record** — Credara sits alongside a portfolio of enterprise-grade hackathon and production builds (NorthBridge FraudOps, Kairos on Arc, ProofSource, Autonix), each shipped as full-stack systems with real test coverage, not prototypes.
 
-**What to include per person:** prior fintech/trade-finance/blockchain work, relevant domain expertise (trade, banking, compliance), and why this team specifically can execute on SME trade finance in the UAE corridor.
+This cross-domain background — regulated banking operations, large-scale utilities transformation, and cryptographic governance infrastructure — is the direct technical basis for Credara's evidence-first, fail-closed approach to on-chain settlement.
 
 ---
 
 ## 2. Problem statement and target market
 
-**The problem.** SMEs that deliver real goods to credible buyers still wait 30–90+ days to get paid. Traditional trade finance is slow, paper-heavy, and structurally biased against smaller firms:
+Over **USD 2 trillion** in global trade finance demand goes unfilled. **~40%** of SME trade-finance applications are rejected, and traditional letters of credit take **7–10 days** of manual processing — friction that falls hardest on SMEs trading through high-volume corridors like **Jebel Ali Port (15M+ TEUs/year)**.
 
-- **Invoice and trade fraud** — fake or duplicate invoices and weak buyer confirmation let bad actors borrow against the same receivable more than once, so lenders price in fraud risk for everyone.
-- **Slow, manual settlement** — Letters of Credit involve days of bank coordination, paper checks, and disputed handoffs. Manual LC processing typically takes **7–10 days**.
-- **No portable credit history** — SMEs with strong trade performance have no way to prove it to a new lender; trust doesn't travel with the business.
+**Target market:** SMEs, buyers, financiers, and logistics partners operating in UAE B2B trade corridors, plus the banks and non-bank financiers who currently reject or slow-walk SME receivables financing because verification is manual and trust is hard to price.
 
-**The scale.** This is not a niche problem:
+Credara's wedge is deliberately narrow: **not** the full USD 50B UAE remittance/payments market, but the **SME trade-finance slice** of it — verified receivables and stablecoin-settled Smart LCs.
 
-- **$2T+** global trade finance gap (SMEs that want financing and can't get it, or can't get it affordably)
-- **~40%** of SME trade-finance applications are rejected, largely due to weak evidence rather than weak fundamentals
-- UAE-specific: **>$50B/yr** in UAE remittance/trade-adjacent flows, **30%** crypto adoption, stablecoins already **51.3%** of crypto transaction activity in the region — the market is primed for stablecoin settlement, and CBUAE's Payment Token Services Regulation (PTSR) gives a live regulatory path for compliant stablecoin acceptance
-- **Jebel Ali Port** alone moves **15M+ TEUs/year** — a concentrated corridor where supplier financing friction is large and addressable
-
-**Target market.** UAE-based SME exporters/suppliers (initial wedge: textiles, general trade goods moving through Jebel Ali), their buyers, and the financiers/lenders who want cleaner, fraud-resistant receivables to underwrite.
+*Related opportunity (footnote only):* remittance apps could later consume the same proof/settlement APIs; Credara does not ship a consumer remittance MVP.
 
 ---
 
 ## 3. Technical architecture and approach on Polygon
 
-**Positioning:** Credara is Polygon-native SME trade finance infrastructure — buyer-confirmed invoices and delivery proof become finance-ready receivables, settled via Smart LC stablecoin escrow. Not a remittance app, not a consumer wallet.
+Credara is a monorepo spanning app, backend, workers, and contracts so proof, settlement, and scoring evolve together:
 
-**Core workflow (built and running):**
+```text
+apps/web        Next.js enterprise dashboard (SME / Buyer / Financier / Admin-Risk)
+apps/api        FastAPI backend (Postgres, JWT, Auth0, Didit KYB, Amoy writes)
+apps/workers    Relayer, indexer, proof, scoring workers
+contracts       Solidity 0.8.28 (Polygon Amoy / PoS-ready)
+docs            Architecture, process flows, judge plan
+```
 
-1. **Invoice created and confirmed** — SME creates an order/invoice; buyer confirms the trade obligation.
-2. **Delivery proof verified** — OTP, buyer confirmation, timestamp and logistics signals build proof confidence.
-3. **Proof anchored on Polygon** — documents stay off-chain; only a cryptographic hash of the proof bundle is anchored via the `ProofRegistry` contract, giving tamper-evident receipts without exposing commercial documents.
-4. **Receivable becomes finance-ready** — the verified invoice is tokenized via `ReceivableRegistry`, exposing it to financier review.
-5. **Smart LC settles with stablecoins** — `SmartLCFactory`-deployed escrow contracts release funds only when delivery is verified and there's no open dispute (fund → verify → release, with dispute/refund/expiry paths).
+**On-chain layer (Polygon Amoy today, PoS-ready):**
 
-**On-chain contract suite (Solidity, Polygon Amoy testnet):**
+| Contract | Role |
+|----------|------|
+| `MockUSDC` | Demo settlement token (`IERC20`; swap for CBUAE PTSR AED stablecoin without changing escrow logic) |
+| `ProofRegistry` | Anchors deterministic hashes of invoice/delivery proof bundles |
+| `ReceivableRegistry` | Buyer-confirmed invoices as finance-ready receivables |
+| `SmartLCFactory` / `SmartLC` | Escrow: create → fund → verify delivery → release / dispute / refund |
+| `CreditScoreAttestation` | On-chain SME trade credit score snapshots |
 
-- `ProofRegistry` — anchors invoice/delivery proof-bundle hashes
-- `ReceivableRegistry` — tokenized receivable state
-- `SmartLCFactory` / `SmartLC` — programmable escrow with separated verifier / dispute-resolver / pauser roles (hardened against a single key holding all authority)
-- `CreditScoreAttestation` — on-chain snapshots of SME trade credit scores
-- `MockUSDC` — stablecoin settlement asset for the demo environment; designed to be swapped for a CBUAE-compliant AED stablecoin as the regulatory path matures (pitch slide notes: `docs/PITCH_STABLECOIN_CORRIDOR.md`)
+**Design principles (shipped, not aspirational):**
 
-**Application architecture:**
+- **Fail-closed chain writes** — if a tx isn't on-chain, the UI shows **Simulated / not Anchored**; no fabricated Polygonscan links (`ALLOW_SIMULATED_CHAIN` off in production).
+- **Off-chain evidence, on-chain anchors** — commercial documents stay private; only hashes and settlement state move on-chain.
+- **Outbox + relayer/cron drain**, **idempotency keys**, **deterministic proof hashing**, **AccessControl / Pausable / ReentrancyGuard** on contracts; **Slither in CI**.
+- **Role-aware multi-tenant access** (SME / Buyer / Financier / Admin-Risk), audit-logged end to end.
+- **Auth0 OAuth + password JWT** (server-brokered authorization-code flow); **Didit KYB** via provider abstraction (`mock` gated in production).
+- **Smart LC factory wiring** — `smart_lc_chain.py` calls real `createSmartLC`, `fund()`, `submitDelivery` → `verifyDelivery` → `release` when relayer env is set.
 
-- **Frontend:** Next.js (React) enterprise workspace — role-based views for SME, Buyer, Financier, and Admin/Risk, each operating on the same shared, verified trade record
-- **Backend:** FastAPI (Python) — real workflow endpoints for orders, invoices, delivery proofs, receivables, Smart LC actions, KYB, trade credit scoring, and settlement reconciliation, backed by Postgres
-- **Auth:** password-based auth plus Auth0 OAuth (Google and other social sign-in) via a server-brokered authorization-code flow
-- **KYB:** provider-abstracted verification layer (currently wired to Didit) for business identity and beneficial-ownership checks before financing is unlocked
-- **Chain writes:** fail-closed by design — if a Polygon transaction isn't actually confirmed, the UI shows "not anchored," never a fabricated explorer link. Proof anchoring is synchronous with the triggering action so there's no dependency on a separate background worker process.
+**Demo climax:** live Amoy proof anchor on Polygonscan, walked through **Judge Mode** (~3 min): SME order → invoice → delivery proof → buyer confirm → receivable + anchor → financier funds Smart LC → release on verified delivery.
+
+Pitch slide (MockUSDC → AED corridor): [docs/PITCH_STABLECOIN_CORRIDOR.md](PITCH_STABLECOIN_CORRIDOR.md)
 
 ---
 
 ## 4. Launch roadmap and go-to-market strategy
 
-**Phase 0 — Hackathon MVP (now):** Core trade-to-settlement workflow live on Polygon Amoy testnet, role-based workspace, Auth0 login, KYB integration, judge-mode demo path (invoice → confirm → proof → receivable → Smart LC → settlement).
+**Now — Amoy testnet demo (shipped):** full lifecycle on Polygon Amoy with MockUSDC; Judge Mode; contracts tested + Slither in CI; dual Vercel deploy (`credara-jet` / `credara-api`).
 
-**Phase 1 — Pilot corridor (0–3 months post-launch):** Onboard a small cohort of real UAE SME suppliers in the Jebel Ali corridor plus 1–2 buyer counterparties and a financier partner. Move from Amoy testnet to Polygon mainnet. Formalize the Didit KYB integration for production use.
+**Near-term (production readiness):**
 
-**Phase 2 — Regulated stablecoin settlement (3–9 months):** Work within CBUAE's PTSR framework to move from MockUSDC to a compliant AED stablecoin for settlement, in partnership with a licensed issuer. Add repayment scheduling and collections for post-funding receivables.
+- Harden Auth0 + enterprise SSO policies (Auth0 is live today; expand org/role claims for bank pilots).
+- Production KYB on Didit (configured; ensure `KYB_PROVIDER=didit` and mock KYB off in prod).
+- Swap MockUSDC for a **CBUAE PTSR-compliant AED stablecoin** from a licensed issuer — same factory, escrow roles, proof conditions.
+- Independent Solidity audit; legal review of receivable assignment and Smart LC enforceability under UAE/DIFC law.
+- Polygon mainnet + monitoring / incident runbooks.
 
-**Phase 3 — Network expansion (9–18 months):** Expand beyond the initial corridor to additional UAE trade lanes and additional financier partners via the financier marketplace / deal-room flow already built. Open the developer API (proof anchoring, receivable creation, Smart LC settlement, credit-score reads) to third-party lenders and trade platforms so Credara is adopted as infrastructure, not just a standalone app.
-
-**Go-to-market:** Direct partnership with DIFC's ecosystem (5,000+ VCs, 289 banking institutions per the hackathon's stated network) to reach financiers first, since financier demand for cleaner receivables pulls SME supply into the platform. Land-and-expand via port/logistics-adjacent trade associations in the Jebel Ali corridor.
+**Go-to-market:** pilot with a small cohort of UAE SMEs in Jebel Ali-linked supply chains plus 1–2 non-bank financiers; use DIFC / challenge ecosystem access (banks, VCs, mentors) to land financier demand first — financiers pull SME supply. Prove **7–10 day LC friction collapsed to same-day proof-to-funding** in one corridor before expanding.
 
 ---
 
 ## 5. Revenue model and scalability plan
 
-**Revenue streams:**
+| Stream | Mechanic |
+|--------|----------|
+| **Financing origination** | Fee on receivables funded via Smart LC marketplace (financier or SME at draw-down) |
+| **Platform / SaaS** | Tiered fees for buyers/financiers using verification, deal room, reporting |
+| **Settlement / escrow** | Basis-point fee per Smart LC fund/release vs. multi-day LC handling |
+| **Credit scoring as a service** | Trade credit attestations via API for external lenders |
 
-- **Financing spread / origination fee** — a fee on each receivable financed through the platform (the standard trade-finance economics, but with lower fraud/underwriting cost passed through as a better rate for SMEs and a safer margin for financiers).
-- **Settlement/transaction fee** — a small fee per Smart LC settlement processed.
-- **Developer/API access** — subscription or usage-based pricing for third-party lenders and trade platforms integrating via the developer API (proof anchoring, receivable data, credit-score reads).
-- **Credit scoring as a service** — trade credit score attestations can be offered standalone to lenders who want Credara's verification layer without using the full workspace.
+**Scalability:** bounded contexts, outbox relayer, multi-tenant RBAC, and token-agnostic escrow — new corridors or stablecoins are largely **issuer + `IERC20` address** configuration, not a rebuild. API-first design lets third parties integrate without using Credara's UI.
 
-**Scalability:** the architecture is deliberately infrastructure-shaped, not app-shaped — proof anchoring, receivable tokenization, and Smart LC settlement are all API-first, so growth doesn't require every counterparty to use Credara's own UI. Each new corridor or trade lane adds marginal cost mostly in KYB/compliance onboarding, not core engineering, since the on-chain contract suite and workflow are corridor-agnostic.
+*Tighten unit economics with Othniel before final submission — illustrative ranges in prior drafts are strategic, not committed pricing.*
 
 ---
 
 ## 6. MVP / Prototype
 
-**What's built and running today:**
+**Live and testable today:**
 
-- Full trade workflow: order creation → buyer confirmation → delivery proof → proof anchoring → receivable tokenization → Smart LC fund/release/dispute/refund
-- Role-based enterprise workspace (SME, Buyer, Financier, Admin/Risk) with a shared trust layer — each role sees the same verified record from their own operational view
-- Real authentication (password + Auth0 social login), real Postgres-backed persistence — no demo/seed data in the live workspace
-- On-chain proof anchoring to Polygon Amoy via a deployed contract suite (`ProofRegistry`, `ReceivableRegistry`, `SmartLCFactory`, `CreditScoreAttestation`, `MockUSDC`)
-- KYB integration (Didit) gating financing readiness
-- Settlement ledger and reconciliation view validating expected vs. on-chain vs. internal-ledger amounts
-- Developer/API explorer surfacing the same endpoints available for third-party integration
+- Next.js enterprise dashboard — four workspaces (SME, Buyer, Financier, Admin/Risk) on one shared verified record.
+- FastAPI backend — orders, invoices, delivery proof, receivables, Smart LC lifecycle, KYB, deal room, proof ledger, settlement views, admin/audit.
+- Contracts on Polygon Amoy (`MockUSDC`, `ProofRegistry`, `ReceivableRegistry`, `SmartLCFactory`, `CreditScoreAttestation`); relayer env on Vercel when configured.
+- End-to-end: order → invoice → delivery proof → proof anchor (Polygonscan when live) → receivable → Smart LC fund → verified-delivery release → credit score path.
 
-**Demo script (judge mode):** SME creates an order → invoice → delivery proof → Buyer confirms → SME anchors proof and creates a receivable (Polygonscan link when live) → Financier reviews the deal room and funds the Smart LC → settlement releases when conditions are met. End-to-end in under 3 minutes.
+**Judge script:** [README.md](../README.md#start-here-judges--reviewers) · Checklist: [JUDGE_READINESS_PLAN.md](JUDGE_READINESS_PLAN.md)
 
-**Related opportunity (footnote, not the product):** The UAE $50B+ remittance/trade-adjacent corridor is context for settlement demand. Credara’s shipped MVP is SME trade finance and Smart LC escrow — not consumer remittance or POS. Remittance apps could later call the same proof/settlement APIs; we are not building that MVP here.
+**Pre-submit ops (confirm before judging):**
+
+1. Relayer funded on Amoy; one proof anchor + one Smart LC cycle visible on Polygonscan.
+2. `ENVIRONMENT=production`, Auth0 callback URLs, `NEXT_PUBLIC_API_ORIGIN` on web, Didit KYB in prod.
+3. OAuth starts on **API host** (`credara-api…/auth/oauth/login`) so state cookie matches callback.
+
+**Explicit non-goals:** no consumer remittance MVP, no POS, no claim of issuing AED — only settlement-readiness for a regulated AED stablecoin on the same rails.
 
 ---
 
-*Draft generated from the current codebase and hackathon brief — review section 1 (team) and the roadmap/revenue sections for accuracy before submitting, since those reflect strategic choices only your team can confirm.*
-*Pitch slide for MockUSDC → regulated AED: `docs/PITCH_STABLECOIN_CORRIDOR.md`.*
+*Architecture diagrams and flows: [README.md](../README.md) · Full process spec: [PROCESS_FLOWS.md](PROCESS_FLOWS.md)*
