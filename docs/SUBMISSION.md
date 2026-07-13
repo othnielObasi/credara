@@ -46,14 +46,23 @@ The brief offers two problem tracks. Credara **directly solves Problem 1 — SME
 
 ## 1. Team background and technical credentials
 
-Credara is built by **Othniel Obasi**, founder of NOVTIA Ltd (London), an AI governance and infrastructure company, with a decade of enterprise product leadership spanning:
+Credara is built by **Othniel Obasi** (founder, NOVTIA Ltd, London) and **Martins Nwanu** (Head of Information Technology, Creditville Group), combining enterprise product leadership with regulated banking engineering delivery.
+
+**Othniel Obasi** — a decade spanning:
 
 - **Digital banking** — Creditville MFBank platform turnaround (40K → 100K+ users).
 - **Utilities enterprise transformation** — PHED, 5M+ customers, $96M+ revenue growth delivered over a 6-year transformation.
 - **AI governance and runtime infrastructure** — architect of AIRG (AI Runtime Governor), a proprietary policy-engine governance control plane with a cryptographic receipt chain (SURGE v2), now applied to Credara's proof-anchoring and evidence model.
 - **Trade finance / fintech infra build track record** — Credara sits alongside a portfolio of enterprise-grade hackathon and production builds (NorthBridge FraudOps, Kairos on Arc, ProofSource, Autonix), each shipped as full-stack systems with real test coverage, not prototypes.
 
-This cross-domain background — regulated banking operations, large-scale utilities transformation, and cryptographic governance infrastructure — is the direct technical basis for Credara's evidence-first, fail-closed approach to on-chain settlement.
+**Martins Nwanu** — regulated fintech engineering leadership:
+
+- **Head of IT, Creditville Group** — leads digital infrastructure, core banking systems, and mobile delivery across the group.
+- **Engineering scale** — led an 11-engineer team; loan disbursement platform volumes scaled to ₦800M–₦1B/month.
+- **Consumer banking product** — C Money mobile/web transformation (30K → 100K+ users); in-house rebuild replacing costly vendor dependency.
+- **Production discipline** — CI/CD, Agile delivery, role-based security, and vendor management applied to Credara's enterprise workspace and API rigor.
+
+Together, this team pairs evidence-first governance infrastructure with live regulated-banking engineering — the direct basis for Credara's fail-closed, financier-trustworthy trade-finance stack.
 
 ---
 

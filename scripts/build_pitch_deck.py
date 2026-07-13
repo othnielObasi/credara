@@ -146,7 +146,7 @@ def build() -> Path:
         size=12,
         color=RGBColor(0x94, 0xA3, 0xB8),
     )
-    _add_textbox(slide, Inches(0.9), Inches(5.85), Inches(11), Inches(0.5), "Othniel Obasi  ·  NOVTIA Ltd  ·  credara-jet.vercel.app", size=14, color=RGBColor(0x94, 0xA3, 0xB8))
+    _add_textbox(slide, Inches(0.9), Inches(5.85), Inches(11), Inches(0.5), "Othniel Obasi & Martins Nwanu  ·  NOVTIA Ltd  ·  credara-jet.vercel.app", size=14, color=RGBColor(0x94, 0xA3, 0xB8))
     _add_footer(slide, dark=True)
 
     # 2 — Challenge fit (maps to official brief)
@@ -401,22 +401,41 @@ def build() -> Path:
 
     # 12 — Team
     slide = prs.slides.add_slide(blank)
-    _section_header(slide, "TEAM", "Othniel Obasi — Founder, NOVTIA Ltd (London)")
+    _section_header(slide, "TEAM", "Banking operators + engineering leadership — built to win financier trust")
+    _add_textbox(slide, Inches(0.9), Inches(2.05), Inches(5.6), Inches(0.4), "Othniel Obasi — Founder, NOVTIA Ltd (London)", size=14, bold=True, color=BLUE)
     _add_bullets(
         slide,
         Inches(0.9),
-        Inches(2.2),
-        Inches(11.5),
-        Inches(4.5),
+        Inches(2.45),
+        Inches(5.6),
+        Inches(4.2),
         [
-            "Digital banking: Creditville MFBank platform 40K → 100K+ users",
-            "Utilities transformation: PHED — 5M+ customers, $96M+ revenue growth (6 yrs)",
-            "AI governance: AIRG policy engine + SURGE v2 cryptographic receipt chain",
-            "Applied to Credara: evidence-first, fail-closed on-chain settlement",
-            "Portfolio: NorthBridge FraudOps, Kairos on Arc, ProofSource, Autonix — full-stack, tested",
+            "Digital banking: Creditville MFBank 40K → 100K+ users",
+            "Utilities: PHED — 5M+ customers, $96M+ revenue growth",
+            "AI governance: AIRG + SURGE v2 cryptographic receipt chain",
+            "Credara: evidence-first, fail-closed on-chain settlement",
         ],
-        size=17,
+        size=15,
     )
+    _add_textbox(slide, Inches(6.9), Inches(2.05), Inches(5.6), Inches(0.4), "Martins Nwanu — Head of IT, Creditville Group", size=14, bold=True, color=BLUE)
+    _add_bullets(
+        slide,
+        Inches(6.9),
+        Inches(2.45),
+        Inches(5.6),
+        Inches(4.2),
+        [
+            "Led 11-engineer team; core banking & loan platform delivery",
+            "C Money app: 30K → 100K+ users; CI/CD and Agile at scale",
+            "Loan disbursement volumes scaled to ₦800M–₦1B/month",
+            "Credara: enterprise workspace, API, and production deploy rigor",
+        ],
+        size=15,
+    )
+    rect = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(6.65), Inches(1.95), Inches(0.05), Inches(4.8))
+    rect.fill.solid()
+    rect.fill.fore_color.rgb = RGBColor(0xE7, 0xEA, 0xF1)
+    rect.line.fill.background()
 
     # 13 — MVP live today
     slide = prs.slides.add_slide(blank)
@@ -514,7 +533,7 @@ def build_investor() -> Path:
     )
     if LANDING_SHOT.exists():
         slide.shapes.add_picture(str(LANDING_SHOT), Inches(8.6), Inches(4.55), width=Inches(3.9))
-    _add_textbox(slide, Inches(0.9), Inches(5.85), Inches(7.5), Inches(0.4), "Othniel Obasi · NOVTIA Ltd · credara-jet.vercel.app", size=13, color=RGBColor(0x94, 0xA3, 0xB8))
+    _add_textbox(slide, Inches(0.9), Inches(5.85), Inches(7.5), Inches(0.4), "Othniel Obasi & Martins Nwanu · NOVTIA Ltd · credara-jet.vercel.app", size=13, color=RGBColor(0x94, 0xA3, 0xB8))
     _add_footer(slide, dark=True)
 
     # 2 — Problem (investor language)
@@ -839,22 +858,41 @@ def build_investor() -> Path:
 
     # 12 — Team
     slide = prs.slides.add_slide(blank)
-    _section_header(slide, "TEAM", "Operator-founder with regulated-scale delivery track record")
+    _section_header(slide, "TEAM", "Founder + banking engineering leadership — regulated delivery at scale")
+    _add_textbox(slide, Inches(0.9), Inches(2.05), Inches(5.6), Inches(0.4), "Othniel Obasi — Founder, NOVTIA Ltd (London)", size=14, bold=True, color=BLUE)
     _add_bullets(
         slide,
         Inches(0.9),
-        Inches(2.2),
-        Inches(11.5),
-        Inches(3.8),
+        Inches(2.45),
+        Inches(5.6),
+        Inches(3.5),
         [
-            "Othniel Obasi — Founder, NOVTIA Ltd (London)",
-            "Digital banking: Creditville MFBank 40K → 100K+ users",
-            "Utilities: PHED transformation — 5M+ customers, $96M+ revenue growth",
-            "AI governance: AIRG + SURGE v2 cryptographic receipt chain → Credara evidence model",
-            "Portfolio of shipped full-stack systems: NorthBridge, Kairos, ProofSource, Autonix",
+            "Creditville MFBank 40K → 100K+ users",
+            "PHED utilities — 5M+ customers, $96M+ revenue growth",
+            "AIRG + SURGE v2 → Credara evidence model",
+            "Portfolio: NorthBridge, Kairos, ProofSource, Autonix",
         ],
-        size=17,
+        size=15,
     )
+    _add_textbox(slide, Inches(6.9), Inches(2.05), Inches(5.6), Inches(0.4), "Martins Nwanu — Head of IT, Creditville Group", size=14, bold=True, color=BLUE)
+    _add_bullets(
+        slide,
+        Inches(6.9),
+        Inches(2.45),
+        Inches(5.6),
+        Inches(3.5),
+        [
+            "11-engineer leadership; core banking platform delivery",
+            "C Money 30K → 100K+ users; in-house mobile rebuild",
+            "Loan ops scaled to ₦800M–₦1B/month disbursements",
+            "Credara: production API, workspace UX, deploy discipline",
+        ],
+        size=15,
+    )
+    rect = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(6.65), Inches(1.95), Inches(0.05), Inches(4.2))
+    rect.fill.solid()
+    rect.fill.fore_color.rgb = RGBColor(0xE7, 0xEA, 0xF1)
+    rect.line.fill.background()
     _add_textbox(
         slide,
         Inches(0.9),
