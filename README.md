@@ -4,14 +4,40 @@
 
 Credara turns buyer-confirmed invoices and verified delivery proof into finance-ready receivables, settled through programmable Smart LC stablecoin escrow on Polygon. It is **B2B trade-finance infrastructure** — not remittance, POS, or a consumer wallet.
 
-| Live | URL |
-|------|-----|
-| Workspace | [credara-jet.vercel.app](https://credara-jet.vercel.app) |
-| API health | [credara-api.vercel.app/health](https://credara-api.vercel.app/health) |
-| API docs | [credara-api.vercel.app/docs](https://credara-api.vercel.app/docs) |
-| Amoy explorer | [amoy.polygonscan.com](https://amoy.polygonscan.com) |
+---
 
-**Judge demo:** Workspace → **Judge demo mode** → invoice → buyer confirm → proof → receivable → anchor (Polygonscan) → Smart LC fund → release. See [docs/JUDGE_READINESS_PLAN.md](docs/JUDGE_READINESS_PLAN.md).
+## Start here (judges & reviewers)
+
+| | Link |
+|---|------|
+| **1. Open the app** | [credara-jet.vercel.app/workspace](https://credara-jet.vercel.app/workspace) |
+| **2. Sign in** | Email/password or **Continue with Auth0** |
+| **3. Prove the API** | [credara-api.vercel.app/docs](https://credara-api.vercel.app/docs) · [health](https://credara-api.vercel.app/health) |
+| **4. On-chain proof** | [amoy.polygonscan.com](https://amoy.polygonscan.com) (after anchor / Smart LC) |
+
+### 5-step judge script (~3 min)
+
+Enable **Judge demo mode** in the sidebar, then:
+
+1. **SME** — create order → invoice → delivery proof  
+2. **Buyer** — confirm order / invoice (switch role or use buyer account)  
+3. **SME** — create receivable → **anchor proof** (Polygonscan when live)  
+4. **Financier** — open deal room → **fund Smart LC**  
+5. **Release** — settlement when delivery verified  
+
+Full checklist: [docs/JUDGE_READINESS_PLAN.md](docs/JUDGE_READINESS_PLAN.md) · Pitch: [docs/PITCH_STABLECOIN_CORRIDOR.md](docs/PITCH_STABLECOIN_CORRIDOR.md)
+
+---
+
+## Screenshots
+
+**Landing** — UAE corridor positioning, live trade-finance flow card, Polygon stack.
+
+![Credara landing page](docs/screenshots/landing.png)
+
+**Workspace (Judge Mode)** — role nav, demo progress strip, trade workflow panels (sign in to use live).
+
+![Credara workspace with Judge demo mode](docs/screenshots/workspace-judge-mode.png)
 
 ---
 
