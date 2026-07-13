@@ -49,9 +49,9 @@ Demo climax: **live Amoy proof anchor → Polygonscan**.
 
 | # | Fix | Status |
 |---|-----|--------|
-| 10 | Slither + contract coverage in CI | Pending |
+| 10 | Slither + contract coverage in CI | Done — `.github/workflows/contracts.yml` |
 | 11 | A11y/mobile pass on judge path | Pending |
-| 12 | Related-opportunity footnote only (no fake remittance MVP) | Pending (pitch) |
+| 12 | Related-opportunity footnote only (no fake remittance MVP) | Done — pitch + submission footnote |
 
 ## Score impact
 

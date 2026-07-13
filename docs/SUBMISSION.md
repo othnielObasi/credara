@@ -106,6 +106,9 @@ Target track: **Problem 1 — SME Trade Finance Is Broken**
 
 **Demo script (judge mode):** SME creates an order → invoice → delivery proof → Buyer confirms → SME anchors proof and creates a receivable (Polygonscan link when live) → Financier reviews the deal room and funds the Smart LC → settlement releases when conditions are met. End-to-end in under 3 minutes.
 
+**Related opportunity (footnote, not the product):** The UAE $50B+ remittance/trade-adjacent corridor is context for settlement demand. Credara’s shipped MVP is SME trade finance and Smart LC escrow — not consumer remittance or POS. Remittance apps could later call the same proof/settlement APIs; we are not building that MVP here.
+
 ---
 
 *Draft generated from the current codebase and hackathon brief — review section 1 (team) and the roadmap/revenue sections for accuracy before submitting, since those reflect strategic choices only your team can confirm.*
+*Pitch slide for MockUSDC → regulated AED: `docs/PITCH_STABLECOIN_CORRIDOR.md`.*

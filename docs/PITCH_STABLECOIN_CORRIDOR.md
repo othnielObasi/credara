@@ -28,3 +28,7 @@ Credara settles verified SME trades through programmable Smart LC escrow on Poly
 ## Backup line if asked about the $50B figure
 
 > That figure frames UAE corridor payment volume. Credara’s wedge is the SME trade-finance slice of that corridor — verified receivables and stablecoin LC settlement — not retail remittance.
+
+## Related opportunity (footnote only — not the product)
+
+Retail remittance and POS are adjacent corridor themes in the hackathon brief. Credara deliberately does **not** ship a remittance MVP. If asked: those flows can consume the same proof / settlement APIs later; today the product is **verified B2B trade finance + Smart LC escrow**.
