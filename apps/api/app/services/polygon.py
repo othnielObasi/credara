@@ -61,6 +61,17 @@ def publish_tx(seed: str, *, proof_hash: str | None = None) -> tuple[str | None,
         chain_id = settings.polygon_chain_id
         nonce = w3.eth.get_transaction_count(account.address)
 
+        # Amoy's minimum tip cap has drifted well above typical mainnet gwei
+        # values over time; a hardcoded 2 gwei tip gets rejected with
+        # "gas tip cap below minimum". Read the network's current suggestion
+        # and pad it, rather than pinning a number that goes stale again.
+        try:
+            priority_fee = int(w3.eth.max_priority_fee * 1.5)
+        except Exception:
+            priority_fee = w3.to_wei('30', 'gwei')
+        priority_fee = max(priority_fee, w3.to_wei('30', 'gwei'))
+        max_fee = priority_fee + w3.to_wei('30', 'gwei')
+
         if proof_hash and settings.proof_registry_address:
             contract = w3.eth.contract(
                 address=Web3.to_checksum_address(settings.proof_registry_address),
@@ -73,8 +84,8 @@ def publish_tx(seed: str, *, proof_hash: str | None = None) -> tuple[str | None,
                     'nonce': nonce,
                     'chainId': chain_id,
                     'gas': 250_000,
-                    'maxFeePerGas': w3.to_wei('50', 'gwei'),
-                    'maxPriorityFeePerGas': w3.to_wei('2', 'gwei'),
+                    'maxFeePerGas': max_fee,
+                    'maxPriorityFeePerGas': priority_fee,
                 }
             )
         else:
@@ -84,13 +95,18 @@ def publish_tx(seed: str, *, proof_hash: str | None = None) -> tuple[str | None,
                 'gas': 21_000,
                 'nonce': nonce,
                 'chainId': chain_id,
-                'maxFeePerGas': w3.to_wei('50', 'gwei'),
-                'maxPriorityFeePerGas': w3.to_wei('2', 'gwei'),
+                'maxFeePerGas': max_fee,
+                'maxPriorityFeePerGas': priority_fee,
             }
 
         signed = account.sign_transaction(tx)
-        tx_hash = w3.eth.send_raw_transaction(signed.raw_transaction)
-        return tx_hash.hex(), True
+        tx_hash = w3.eth.send_raw_transaction(signed.raw_transaction).hex()
+        # .hex() on some HexBytes/bytes implementations omits the leading
+        # "0x" - explorer links break silently without it, so enforce it here
+        # rather than at every call site that builds a Polygonscan URL.
+        if not tx_hash.startswith('0x'):
+            tx_hash = '0x' + tx_hash
+        return tx_hash, True
     except ChainUnavailableError:
         raise
     except Exception as exc:
