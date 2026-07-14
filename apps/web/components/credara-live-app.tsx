@@ -7,7 +7,7 @@ import AuthOverlay from './auth-overlay';
 import { TradeWorkflowPanel, DeliveryProofPanel, ReceivablesPanel, ProofLedgerPage } from './workspace/trade-workflow-panel';
 import { SettlementPanel } from './workspace/settlement-panel';
 import { SettingsPanel, InvitationsPanel, BuyerInboxPanel, MarketplacePanel, DealRoomPanel } from './workspace/workspace-panels';
-import { clearAuthSession, loginUser, realApi, registerUser, setAuthSession } from '../lib/api';
+import { clearAuthSession, loginUser, realApi, registerUser, setAuthSession, ApiError } from '../lib/api';
 import { financeApi } from '../lib/api/finance';
 import { tradeApi, type Order } from '../lib/api/trade';
 import { fmt, statusTone, titleCase } from '../lib/format';
@@ -281,6 +281,22 @@ function useCredaraApp(startInWorkspace: boolean, initialAuthMode: 'signin' | 's
     withState({ token, role, jwtRole: role });
   }
 
+  function expireSession(message = 'Your session expired. Sign in again to continue.') {
+    clearAuthSession();
+    setAuthForm(emptyAuthForm);
+    setShowAuth(true);
+    setState({ ...initialState, authMode: 'signin' });
+    notify('Sign in required', message);
+  }
+
+  function handleAuthError(error: unknown): boolean {
+    if (error instanceof ApiError && error.status === 401) {
+      expireSession(error.detail);
+      return true;
+    }
+    return false;
+  }
+
   async function loadNavigation(role: Role) {
     try {
       const nav = await realApi.navigationForRole(role);
@@ -458,8 +474,10 @@ function useCredaraApp(startInWorkspace: boolean, initialAuthMode: 'signin' | 's
       await loadOperationalState(id);
       notify('Backend connected', 'Persistent records are loaded.');
     } catch (error) {
-      withState({ connected: false, error: error instanceof Error ? error.message : 'Connection failed' });
-      notify('Backend not connected', error instanceof Error ? error.message.slice(0, 140) : 'Connection failed');
+      if (!handleAuthError(error)) {
+        withState({ connected: false, error: error instanceof Error ? error.message : 'Connection failed' });
+        notify('Backend not connected', error instanceof ApiError ? error.detail : error instanceof Error ? error.message.slice(0, 140) : 'Connection failed');
+      }
     }
   }
 
@@ -689,7 +707,9 @@ function useCredaraApp(startInWorkspace: boolean, initialAuthMode: 'signin' | 's
         const id = await loadWorkspace();
         await loadOperationalState(id);
       } catch (error) {
-        withState({ connected: false, error: error instanceof Error ? error.message : 'Connection failed' });
+        if (!handleAuthError(error)) {
+          withState({ connected: false, error: error instanceof Error ? error.message : 'Connection failed' });
+        }
       }
     })();
   }, []);

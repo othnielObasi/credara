@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     jwt_secret: str = 'change-me-in-production'
     jwt_issuer: str = 'credara.local'
     jwt_audience: str = 'credara.web'
+    jwt_access_token_minutes: int = 480
     # NoDecode: this is a plain comma-separated string in .env, not JSON - without
     # NoDecode, pydantic-settings tries to JSON-decode it before parse_cors() ever
     # runs, and raises SettingsError on any non-JSON value (including the default).

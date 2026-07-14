@@ -49,8 +49,9 @@ def verify_password(password: str, password_hash: str) -> bool:
         return False
 
 
-def create_access_token(subject: str, role: str, minutes: int = 60) -> str:
+def create_access_token(subject: str, role: str, minutes: int | None = None) -> str:
     settings = get_settings()
+    ttl = minutes if minutes is not None else settings.jwt_access_token_minutes
     now = datetime.now(timezone.utc)
     payload = {
         'sub': subject,
@@ -58,7 +59,7 @@ def create_access_token(subject: str, role: str, minutes: int = 60) -> str:
         'iss': settings.jwt_issuer,
         'aud': settings.jwt_audience,
         'iat': int(now.timestamp()),
-        'exp': int((now + timedelta(minutes=minutes)).timestamp()),
+        'exp': int((now + timedelta(minutes=ttl)).timestamp()),
     }
     return jwt.encode(payload, settings.jwt_secret, algorithm='HS256')
 

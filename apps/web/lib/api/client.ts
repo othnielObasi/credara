@@ -12,13 +12,36 @@ export const API_ORIGIN = (
 export const OAUTH_LOGIN_URL = `${API_ORIGIN}/api/v1/auth/oauth/login`;
 
 export class ApiError extends Error {
+  readonly detail: string;
+
   constructor(
     message: string,
     readonly status: number,
+    detail?: string,
   ) {
-    super(message);
+    super(detail || message);
     this.name = 'ApiError';
+    this.detail = detail || message;
   }
+}
+
+function parseErrorBody(text: string, status: number): ApiError {
+  const trimmed = text.trim();
+  if (trimmed.startsWith('{')) {
+    try {
+      const body = JSON.parse(trimmed) as { detail?: string | Array<{ msg?: string }> };
+      if (typeof body.detail === 'string') {
+        return new ApiError(trimmed, status, body.detail);
+      }
+      if (Array.isArray(body.detail)) {
+        const msg = body.detail.map((d) => d.msg).filter(Boolean).join('; ') || trimmed;
+        return new ApiError(trimmed, status, msg);
+      }
+    } catch {
+      /* fall through */
+    }
+  }
+  return new ApiError(trimmed || `HTTP ${status}`, status);
 }
 
 export function getAuthToken(): string | null {
@@ -37,7 +60,10 @@ export function clearAuthSession() {
 }
 
 async function parseResponse<T>(res: Response): Promise<T> {
-  if (!res.ok) throw new ApiError((await res.text()) || `HTTP ${res.status}`, res.status);
+  if (!res.ok) {
+    const text = await res.text();
+    throw parseErrorBody(text, res.status);
+  }
   if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
 }
